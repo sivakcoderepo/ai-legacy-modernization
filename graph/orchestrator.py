@@ -1,19 +1,10 @@
-# graph/orchestrator.py
-
 from langgraph.graph import StateGraph
 from typing import TypedDict, List, Dict
-
-# Import all agents
 from agents.legacy_analyzer import legacy_code_analyzer
 from agents.domain_agent import domain_model_agent
 from agents.backend_agent import backend_agent
 from agents.frontend_agent import frontend_agent
 from agents.cloud_agent import cloud_agent
-
-
-# ---------------------------------------------------
-# 1️⃣ Define Graph State
-# ---------------------------------------------------
 
 class State(TypedDict):
     vb_code: str
@@ -24,118 +15,57 @@ class State(TypedDict):
     frontend_design: str
     cloud_design: str
 
-
-# ---------------------------------------------------
-# 2️⃣ Node Function
-# ---------------------------------------------------
-
-def analyze(state: State) -> State:
+# -----------------------------
+# Streaming Node
+# -----------------------------
+def analyze_stream(state: State):
     """
-    Runs all agents sequentially and updates the state.
+    Generator that yields each agent output for streaming.
     """
-
-    # Add user input to history
-    state["history"].append({
-        "role": "user",
-        "content": state["vb_code"]
-    })
+    state["history"].append({"role": "user", "content": state["vb_code"]})
 
     # 1️⃣ Legacy Analyzer
-    logic = legacy_code_analyzer(
-        state["vb_code"],
-        state["history"]          # ✅ FIX
-    )
+    for chunk in legacy_code_analyzer(state["vb_code"], state["history"], stream=True):
+        state["business_logic"] += chunk
+        yield {"business_logic": chunk}
 
-    state["business_logic"] = logic
-    state["history"].append({
-        "role": "assistant",
-        "content": logic
-    })
+    state["history"].append({"role": "assistant", "content": state["business_logic"]})
 
     # 2️⃣ Domain Model
-    domain = domain_model_agent(
-        logic,
-        state["history"]          # ✅ FIX
-    )
+    for chunk in domain_model_agent(state["business_logic"], state["history"], stream=True):
+        state["domain_model"] += chunk
+        yield {"domain_model": chunk}
 
-    state["domain_model"] = domain
-    state["history"].append({
-        "role": "assistant",
-        "content": domain
-    })
+    state["history"].append({"role": "assistant", "content": state["domain_model"]})
 
     # 3️⃣ Backend Design
-    backend = backend_agent(
-        domain,
-        state["history"]          # ✅ FIX
-    )
+    for chunk in backend_agent(state["domain_model"], state["history"], stream=True):
+        state["backend_design"] += chunk
+        yield {"backend_design": chunk}
 
-    state["backend_design"] = backend
-    state["history"].append({
-        "role": "assistant",
-        "content": backend
-    })
+    state["history"].append({"role": "assistant", "content": state["backend_design"]})
 
     # 4️⃣ Frontend Design
-    frontend = frontend_agent(
-        backend,
-        state["history"]          # ✅ FIX
-    )
+    for chunk in frontend_agent(state["backend_design"], state["history"], stream=True):
+        state["frontend_design"] += chunk
+        yield {"frontend_design": chunk}
 
-    state["frontend_design"] = frontend
-    state["history"].append({
-        "role": "assistant",
-        "content": frontend
-    })
+    state["history"].append({"role": "assistant", "content": state["frontend_design"]})
 
     # 5️⃣ Cloud Design
-    cloud = cloud_agent(
-        backend + frontend,
-        state["history"]          # ✅ FIX
-    )
+    combined = state["backend_design"] + state["frontend_design"]
+    for chunk in cloud_agent(combined, state["history"], stream=True):
+        state["cloud_design"] += chunk
+        yield {"cloud_design": chunk}
 
-    state["cloud_design"] = cloud
-    state["history"].append({
-        "role": "assistant",
-        "content": cloud
-    })
+    state["history"].append({"role": "assistant", "content": state["cloud_design"]})
 
-    return state
-
-
-# ---------------------------------------------------
-# 3️⃣ Build Graph
-# ---------------------------------------------------
-
+# -----------------------------
+# Build Graph
+# -----------------------------
 def build_graph():
-    """
-    Creates and compiles the LangGraph workflow.
-    """
-
     graph = StateGraph(State)
-
-    graph.add_node("analyze", analyze)
-    graph.set_entry_point("analyze")
-    graph.set_finish_point("analyze")
-
-    compiled_graph = graph.compile()
-
-    return compiled_graph
-
-
-# ---------------------------------------------------
-# 4️⃣ Execution Helper (Used by FastAPI)
-# ---------------------------------------------------
-
-def run_graph(initial_state: dict):
-    """
-    Wrapper used by API layer.
-    Executes compiled graph correctly.
-    """
-
-    graph = build_graph()
-
-    # ✅ Correct method for langgraph 1.0.5
-    result = graph.invoke(initial_state)
-
-    return result
+    graph.add_node("analyze_stream", analyze_stream)
+    graph.set_entry_point("analyze_stream")
+    graph.set_finish_point("analyze_stream")
+    return graph.compile()

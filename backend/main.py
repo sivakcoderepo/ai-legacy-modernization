@@ -1,21 +1,17 @@
-# backend/main.py
-
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import StreamingResponse
+import json
 from pydantic import BaseModel
-from graph.orchestrator import run_graph  # use the helper
+from graph.orchestrator import build_graph
+import asyncio
 from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
 
-
-# Allow CORS
-origins = [
-    "http://localhost:5500",
-    "http://127.0.0.1:5500",
-    "http://localhost:8000",
-    "*",
-]
-
+# -----------------------
+# CORS setup
+# -----------------------
+origins = ["http://localhost:5500", "*"]
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
@@ -24,30 +20,42 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
+# -----------------------
+# Models
+# -----------------------
 class ChatRequest(BaseModel):
     message: str
 
-
-
+# -----------------------
 # Health check
+# -----------------------
 @app.get("/")
 def root():
     return {"status": "Backend running"}
 
-@app.post("/chat")
-def chat(req: ChatRequest):
-    state = {
-        "vb_code": req.message,
-        "history": [],
-        "business_logic": "",
-        "domain_model": "",
-        "backend_design": "",
-        "frontend_design": "",
-        "cloud_design": ""
-    }
-    try:
-        result = run_graph(state)
-        return result
-    except Exception as e:
-        return {"error": str(e)}
+# -----------------------
+# Streaming chat (new)
+# -----------------------
+graph = build_graph()
+
+@app.post("/chat/stream")
+async def chat_stream(req: Request):
+    body = await req.json()
+    vb_code = body.get("message", "")
+
+    async def event_generator():
+        state = {
+            "vb_code": vb_code,
+            "history": [],
+            "business_logic": "",
+            "domain_model": "",
+            "backend_design": "",
+            "frontend_design": "",
+            "cloud_design": ""
+        }
+
+        # Call async generator from orchestrator
+        async for chunk in graph.nodes["analyze_stream"](state):
+            yield f"data: {json.dumps(chunk)}\n\n"
+
+    return StreamingResponse(event_generator(), media_type="text/event-stream")

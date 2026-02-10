@@ -1,12 +1,12 @@
-﻿import env
+import env
 from langchain_openai import ChatOpenAI
 from typing import List, Dict
 
 def legacy_code_analyzer(vb_code: str, history: List[Dict[str, str]], stream: bool = False):
-    llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
-    
-    history_text = "\n".join([f'{h["role"]}: {h["content"]}' for h in history])
-    
+    llm = ChatOpenAI(model="gpt-4.1", temperature=0)
+    history_text = "\n".join(
+        [f'{h["role"]}: {h["content"]}' for h in history]
+    )
     prompt = f"""
 You are a legacy code assistant.
 
@@ -21,6 +21,6 @@ VB CODE:
     
     if stream:
         for chunk in llm.stream(prompt):
-            yield chunk
+            yield chunk.content
     else:
         yield llm.invoke(prompt).content

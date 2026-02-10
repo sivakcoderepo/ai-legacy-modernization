@@ -1,0 +1,328 @@
+<div class="container">
+  <!-- Progress Steps -->
+  <div class="progress-container">
+    <div class="steps-wrapper">
+      <div *ngFor="let step of steps; let i = index" 
+           class="step-item"
+           [class.completed]="getStepStatus(step.step) === 'completed'"
+           [class.current]="getStepStatus(step.step) === 'current'"
+           [class.pending]="getStepStatus(step.step) === 'pending'">
+        <div class="step-icon">
+          <span *ngIf="getStepStatus(step.step) === 'completed'">✓</span>
+          <span *ngIf="getStepStatus(step.step) !== 'completed'">{{ step.icon }}</span>
+        </div>
+        <div class="step-info">
+          <div class="step-title">{{ step.title }}</div>
+          <div class="step-description">{{ step.description }}</div>
+        </div>
+        <div class="step-connector" *ngIf="i < steps.length - 1"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Content Area -->
+  <div class="content-area">
+    
+    <!-- Step 0: Upload -->
+    <div *ngIf="state.currentStep === ModernizationStep.UPLOAD" class="card fade-in">
+      <h2>📁 Upload Your VB Application</h2>
+      <p class="subtitle">Select your Visual Basic file to begin the modernization process</p>
+      
+      <div class="upload-area">
+        <input type="file" 
+               id="fileInput" 
+               accept=".vb,.bas,.cls,.frm"
+               (change)="onFileSelected($event)"
+               style="display: none">
+        <label for="fileInput" class="upload-label">
+          <div class="upload-icon">📤</div>
+          <div class="upload-text">
+            <span *ngIf="!uploadedFileName">Click to browse or drag VB file here</span>
+            <span *ngIf="uploadedFileName" class="file-selected">{{ uploadedFileName }}</span>
+          </div>
+        </label>
+      </div>
+
+      <div *ngIf="state.vbCode" class="code-preview">
+        <h3>Preview</h3>
+        <pre>{{ state.vbCode.substring(0, 500) }}{{ state.vbCode.length > 500 ? '...' : '' }}</pre>
+      </div>
+
+      <div class="action-buttons">
+        <button class="btn btn-primary" 
+                [disabled]="!state.vbCode || isProcessing"
+                (click)="startAnalysis()">
+          <span *ngIf="!isProcessing">🚀 Start Modernization</span>
+          <span *ngIf="isProcessing">Processing...</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Step 1: Business Logic Analysis -->
+    <div *ngIf="state.currentStep === ModernizationStep.BUSINESS_LOGIC" class="card fade-in">
+      <div class="step-header">
+        <div>
+          <h2>🔍 Business Logic Analysis</h2>
+          <p class="subtitle">AI is analyzing your VB code and extracting business rules</p>
+        </div>
+        <span class="badge badge-info">Step 1 of 5</span>
+      </div>
+
+      <div class="output-area">
+        <div class="output-header">
+          <h3>Analysis Results</h3>
+          <button class="btn btn-secondary btn-sm" 
+                  *ngIf="state.businessLogic"
+                  (click)="downloadOutput('business-logic', state.businessLogic)">
+            💾 Download
+          </button>
+        </div>
+        
+        <div *ngIf="isProcessing" class="processing-indicator">
+          <div class="spinner"></div>
+          <p>Analyzing code...</p>
+        </div>
+
+        <pre *ngIf="state.businessLogic">{{ state.businessLogic }}</pre>
+      </div>
+
+      <div class="action-buttons" *ngIf="!isProcessing && state.businessLogic">
+        <button class="btn btn-success" (click)="approveAndContinue()">
+          ✅ Approve & Continue
+        </button>
+        <button class="btn btn-secondary" (click)="rejectAndModify()">
+          ✏️ Modify
+        </button>
+        <button class="btn btn-danger" (click)="reset()">
+          🔄 Start Over
+        </button>
+      </div>
+    </div>
+
+    <!-- Step 2: Domain Model -->
+    <div *ngIf="state.currentStep === ModernizationStep.DOMAIN_MODEL" class="card fade-in">
+      <div class="step-header">
+        <div>
+          <h2>🏗️ Domain Model Design</h2>
+          <p class="subtitle">Extracted domain entities and bounded contexts</p>
+        </div>
+        <span class="badge badge-info">Step 2 of 5</span>
+      </div>
+
+      <div class="output-area">
+        <div class="output-header">
+          <h3>Domain Model</h3>
+          <button class="btn btn-secondary btn-sm" 
+                  *ngIf="state.domainModel"
+                  (click)="downloadOutput('domain-model', state.domainModel)">
+            💾 Download
+          </button>
+        </div>
+        
+        <div *ngIf="isProcessing" class="processing-indicator">
+          <div class="spinner"></div>
+          <p>Generating domain model...</p>
+        </div>
+
+        <pre *ngIf="state.domainModel">{{ state.domainModel }}</pre>
+      </div>
+
+      <div class="action-buttons" *ngIf="!isProcessing && state.domainModel">
+        <button class="btn btn-success" (click)="approveAndContinue()">
+          ✅ Approve & Continue
+        </button>
+        <button class="btn btn-secondary" (click)="rejectAndModify()">
+          ✏️ Modify
+        </button>
+        <button class="btn btn-danger" (click)="reset()">
+          🔄 Start Over
+        </button>
+      </div>
+    </div>
+
+    <!-- Step 3: Backend Design -->
+    <div *ngIf="state.currentStep === ModernizationStep.BACKEND_DESIGN" class="card fade-in">
+      <div class="step-header">
+        <div>
+          <h2>⚙️ Backend Architecture</h2>
+          <p class="subtitle">Spring Boot REST API with clean architecture</p>
+        </div>
+        <span class="badge badge-info">Step 3 of 5</span>
+      </div>
+
+      <div class="output-area">
+        <div class="output-header">
+          <h3>Backend Design</h3>
+          <button class="btn btn-secondary btn-sm" 
+                  *ngIf="state.backendDesign"
+                  (click)="downloadOutput('backend-design', state.backendDesign)">
+            💾 Download
+          </button>
+        </div>
+        
+        <div *ngIf="isProcessing" class="processing-indicator">
+          <div class="spinner"></div>
+          <p>Designing backend architecture...</p>
+        </div>
+
+        <pre *ngIf="state.backendDesign">{{ state.backendDesign }}</pre>
+      </div>
+
+      <div class="action-buttons" *ngIf="!isProcessing && state.backendDesign">
+        <button class="btn btn-success" (click)="approveAndContinue()">
+          ✅ Approve & Continue
+        </button>
+        <button class="btn btn-secondary" (click)="rejectAndModify()">
+          ✏️ Modify
+        </button>
+        <button class="btn btn-danger" (click)="reset()">
+          🔄 Start Over
+        </button>
+      </div>
+    </div>
+
+    <!-- Step 4: Frontend Design -->
+    <div *ngIf="state.currentStep === ModernizationStep.FRONTEND_DESIGN" class="card fade-in">
+      <div class="step-header">
+        <div>
+          <h2>🎨 Frontend Components</h2>
+          <p class="subtitle">Angular UI design with modern components</p>
+        </div>
+        <span class="badge badge-info">Step 4 of 5</span>
+      </div>
+
+      <div class="output-area">
+        <div class="output-header">
+          <h3>Frontend Design</h3>
+          <button class="btn btn-secondary btn-sm" 
+                  *ngIf="state.frontendDesign"
+                  (click)="downloadOutput('frontend-design', state.frontendDesign)">
+            💾 Download
+          </button>
+        </div>
+        
+        <div *ngIf="isProcessing" class="processing-indicator">
+          <div class="spinner"></div>
+          <p>Creating frontend components...</p>
+        </div>
+
+        <pre *ngIf="state.frontendDesign">{{ state.frontendDesign }}</pre>
+      </div>
+
+      <div class="action-buttons" *ngIf="!isProcessing && state.frontendDesign">
+        <button class="btn btn-success" (click)="approveAndContinue()">
+          ✅ Approve & Continue
+        </button>
+        <button class="btn btn-secondary" (click)="rejectAndModify()">
+          ✏️ Modify
+        </button>
+        <button class="btn btn-danger" (click)="reset()">
+          🔄 Start Over
+        </button>
+      </div>
+    </div>
+
+    <!-- Step 5: Cloud Design -->
+    <div *ngIf="state.currentStep === ModernizationStep.CLOUD_DESIGN" class="card fade-in">
+      <div class="step-header">
+        <div>
+          <h2>☁️ Cloud Deployment</h2>
+          <p class="subtitle">AWS infrastructure and containerization</p>
+        </div>
+        <span class="badge badge-info">Step 5 of 5</span>
+      </div>
+
+      <div class="output-area">
+        <div class="output-header">
+          <h3>Cloud Architecture</h3>
+          <button class="btn btn-secondary btn-sm" 
+                  *ngIf="state.cloudDesign"
+                  (click)="downloadOutput('cloud-design', state.cloudDesign)">
+            💾 Download
+          </button>
+        </div>
+        
+        <div *ngIf="isProcessing" class="processing-indicator">
+          <div class="spinner"></div>
+          <p>Designing cloud architecture...</p>
+        </div>
+
+        <pre *ngIf="state.cloudDesign">{{ state.cloudDesign }}</pre>
+      </div>
+
+      <div class="action-buttons" *ngIf="!isProcessing && state.cloudDesign">
+        <button class="btn btn-success" (click)="approveAndContinue()">
+          ✅ Complete Modernization
+        </button>
+        <button class="btn btn-secondary" (click)="rejectAndModify()">
+          ✏️ Modify
+        </button>
+        <button class="btn btn-danger" (click)="reset()">
+          🔄 Start Over
+        </button>
+      </div>
+    </div>
+
+    <!-- Step 6: Complete -->
+    <div *ngIf="state.currentStep === ModernizationStep.COMPLETE" class="card fade-in completion-card">
+      <div class="completion-content">
+        <div class="completion-icon">🎉</div>
+        <h2>Modernization Complete!</h2>
+        <p>Your VB application has been successfully transformed into a modern architecture</p>
+        
+        <div class="completion-summary">
+          <div class="summary-item">
+            <div class="summary-icon">🔍</div>
+            <div class="summary-text">
+              <strong>Business Logic</strong>
+              <span>Analyzed and documented</span>
+            </div>
+          </div>
+          <div class="summary-item">
+            <div class="summary-icon">🏗️</div>
+            <div class="summary-text">
+              <strong>Domain Model</strong>
+              <span>Entities and contexts defined</span>
+            </div>
+          </div>
+          <div class="summary-item">
+            <div class="summary-icon">⚙️</div>
+            <div class="summary-text">
+              <strong>Backend</strong>
+              <span>Spring Boot REST API</span>
+            </div>
+          </div>
+          <div class="summary-item">
+            <div class="summary-icon">🎨</div>
+            <div class="summary-text">
+              <strong>Frontend</strong>
+              <span>Angular components</span>
+            </div>
+          </div>
+          <div class="summary-item">
+            <div class="summary-icon">☁️</div>
+            <div class="summary-text">
+              <strong>Cloud</strong>
+              <span>AWS deployment ready</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="action-buttons">
+          <button class="btn btn-primary" (click)="downloadOutput('complete-modernization', 
+            'Business Logic:\n' + state.businessLogic + '\n\n' +
+            'Domain Model:\n' + state.domainModel + '\n\n' +
+            'Backend Design:\n' + state.backendDesign + '\n\n' +
+            'Frontend Design:\n' + state.frontendDesign + '\n\n' +
+            'Cloud Design:\n' + state.cloudDesign)">
+            📦 Download Complete Package
+          </button>
+          <button class="btn btn-secondary" (click)="reset()">
+            🔄 Start New Modernization
+          </button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>

@@ -1,1 +1,13 @@
 .env
+# Angular
+angular-modernization-ui/node_modules/
+angular-modernization-ui/dist/
+angular-modernization-ui/.angular/
+angular-modernization-ui/updated-agents/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+.env
+

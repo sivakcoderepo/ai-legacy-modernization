@@ -1,21 +1,26 @@
 import env
 from langchain_openai import ChatOpenAI
-from typing import List,Dict
+from typing import List, Dict
 
-def frontend_agent(backend_design: str, history: List[Dict[str,str]]) -> str:
+def frontend_agent(backend_design: str, history: List[Dict[str, str]], stream: bool = False):
     llm = ChatOpenAI(model="gpt-4.1", temperature=0)
-    history_text="\n".join(
-        [f'{h["role"]}:{h["content"]}' for h in history]
+    history_text = "\n".join(
+        [f'{h["role"]}: {h["content"]}' for h in history]
     )
     prompt = f"""
-    You are a frontend design assistant.
-  
-    Conversation history:
-    {history_text}
+You are a frontend design assistant.
 
-    Design Angular UI components based on this backend design:
+Conversation history:
+{history_text}
 
-    BACKEND DESIGN:
-    {backend_design}
-    """
-    return llm.invoke(prompt).content
+Design Angular UI components based on this backend design:
+
+BACKEND DESIGN:
+{backend_design}
+"""
+    
+    if stream:
+        for chunk in llm.stream(prompt):
+            yield chunk.content
+    else:
+        yield llm.invoke(prompt).content

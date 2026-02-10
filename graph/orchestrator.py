@@ -18,37 +18,37 @@ class State(TypedDict):
 # -----------------------------
 # Streaming Node
 # -----------------------------
-def analyze_stream(state: State):
+async def analyze_stream(state: State):
     """
-    Generator that yields each agent output for streaming.
+    Async generator that yields each agent output for streaming.
     """
     state["history"].append({"role": "user", "content": state["vb_code"]})
 
     # 1️⃣ Legacy Analyzer
     for chunk in legacy_code_analyzer(state["vb_code"], state["history"], stream=True):
         state["business_logic"] += chunk
-        yield {"business_logic": chunk}
+        yield {"agent": "business_logic", "output": chunk}
 
     state["history"].append({"role": "assistant", "content": state["business_logic"]})
 
     # 2️⃣ Domain Model
     for chunk in domain_model_agent(state["business_logic"], state["history"], stream=True):
         state["domain_model"] += chunk
-        yield {"domain_model": chunk}
+        yield {"agent": "domain_model", "output": chunk}
 
     state["history"].append({"role": "assistant", "content": state["domain_model"]})
 
     # 3️⃣ Backend Design
     for chunk in backend_agent(state["domain_model"], state["history"], stream=True):
         state["backend_design"] += chunk
-        yield {"backend_design": chunk}
+        yield {"agent": "backend_design", "output": chunk}
 
     state["history"].append({"role": "assistant", "content": state["backend_design"]})
 
     # 4️⃣ Frontend Design
     for chunk in frontend_agent(state["backend_design"], state["history"], stream=True):
         state["frontend_design"] += chunk
-        yield {"frontend_design": chunk}
+        yield {"agent": "frontend_design", "output": chunk}
 
     state["history"].append({"role": "assistant", "content": state["frontend_design"]})
 
@@ -56,7 +56,7 @@ def analyze_stream(state: State):
     combined = state["backend_design"] + state["frontend_design"]
     for chunk in cloud_agent(combined, state["history"], stream=True):
         state["cloud_design"] += chunk
-        yield {"cloud_design": chunk}
+        yield {"agent": "cloud_design", "output": chunk}
 
     state["history"].append({"role": "assistant", "content": state["cloud_design"]})
 

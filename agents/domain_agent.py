@@ -1,4 +1,4 @@
-﻿import env
+import env
 from langchain_openai import ChatOpenAI
 from typing import List, Dict
 

@@ -1,4 +1,4 @@
-﻿import env
+import env
 from langchain_openai import ChatOpenAI
 from typing import List, Dict
 
@@ -20,7 +20,9 @@ VB CODE:
 """
     
     if stream:
+        # Stream returns AIMessageChunk objects, yield them directly
         for chunk in llm.stream(prompt):
             yield chunk
     else:
+        # Non-stream returns the full response
         yield llm.invoke(prompt).content

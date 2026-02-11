@@ -65,7 +65,7 @@
           <h2>🔍 Business Logic Analysis</h2>
           <p class="subtitle">AI is analyzing your VB code and extracting business rules</p>
         </div>
-        <span class="badge badge-info">Step 1 of 5</span>
+        <span class="badge badge-info">Step 1 of 7</span>
       </div>
 
       <div class="output-area">
@@ -78,7 +78,7 @@
           </button>
         </div>
         
-        <div *ngIf="isProcessing" class="processing-indicator">
+        <div *ngIf="isProcessing && !state.businessLogic" class="processing-indicator">
           <div class="spinner"></div>
           <p>Analyzing code...</p>
         </div>
@@ -86,12 +86,9 @@
         <pre *ngIf="state.businessLogic">{{ state.businessLogic }}</pre>
       </div>
 
-      <div class="action-buttons" *ngIf="!isProcessing && state.businessLogic">
+      <div class="action-buttons" *ngIf="canProceedToNextStep()">
         <button class="btn btn-success" (click)="approveAndContinue()">
           ✅ Approve & Continue
-        </button>
-        <button class="btn btn-secondary" (click)="rejectAndModify()">
-          ✏️ Modify
         </button>
         <button class="btn btn-danger" (click)="reset()">
           🔄 Start Over
@@ -99,14 +96,70 @@
       </div>
     </div>
 
-    <!-- Step 2: Domain Model -->
+    <!-- Step 2: Use Cases -->
+    <div *ngIf="state.currentStep === ModernizationStep.USE_CASES" class="card fade-in">
+      <div class="step-header">
+        <div>
+          <h2>📋 Use Case Generation</h2>
+          <p class="subtitle">Comprehensive use cases derived from business logic</p>
+        </div>
+        <span class="badge badge-info">Step 2 of 7</span>
+      </div>
+
+      <div class="output-area">
+        <div class="output-header">
+          <h3>Use Cases</h3>
+          <button class="btn btn-secondary btn-sm" 
+                  *ngIf="state.useCases"
+                  (click)="downloadOutput('use-cases', state.useCases)">
+            💾 Download
+          </button>
+        </div>
+        
+        <div *ngIf="isProcessing && !state.useCases" class="processing-indicator">
+          <div class="spinner"></div>
+          <p>Generating use cases...</p>
+        </div>
+
+        <pre *ngIf="state.useCases">{{ state.useCases }}</pre>
+      </div>
+
+      <div class="action-buttons" *ngIf="canProceedToNextStep()">
+        <button class="btn btn-success" (click)="approveAndContinue()">
+          ✅ Approve & Continue
+        </button>
+        <button class="btn btn-danger" (click)="reset()">
+          🔄 Start Over
+        </button>
+      </div>
+    </div>
+
+    <!-- Step 3: Domain Model -->
     <div *ngIf="state.currentStep === ModernizationStep.DOMAIN_MODEL" class="card fade-in">
       <div class="step-header">
         <div>
           <h2>🏗️ Domain Model Design</h2>
           <p class="subtitle">Extracted domain entities and bounded contexts</p>
         </div>
-        <span class="badge badge-info">Step 2 of 5</span>
+        <span class="badge badge-info">Step 3 of 7</span>
+      </div>
+
+      <!-- NEW: Target Domain Upload -->
+      <div class="upload-area" style="margin-bottom: 20px; padding: 20px;">
+        <h3 style="margin-bottom: 10px;">📥 Upload Target Domain Model (Optional)</h3>
+        <p style="margin-bottom: 15px; color: #666;">Upload your enterprise domain model to compare with the generated model</p>
+        
+        <input type="file" 
+               id="targetDomainInput"
+               accept=".txt,.md,.json"
+               (change)="onTargetDomainSelected($event)"
+               style="display: none">
+        <label for="targetDomainInput" class="upload-label" style="padding: 20px;">
+          <div class="upload-text">
+            <span *ngIf="!targetDomainFileName">📄 Choose Target Domain File</span>
+            <span *ngIf="targetDomainFileName" class="file-selected">{{ targetDomainFileName }}</span>
+          </div>
+        </label>
       </div>
 
       <div class="output-area">
@@ -119,7 +172,7 @@
           </button>
         </div>
         
-        <div *ngIf="isProcessing" class="processing-indicator">
+        <div *ngIf="isProcessing && !state.domainModel" class="processing-indicator">
           <div class="spinner"></div>
           <p>Generating domain model...</p>
         </div>
@@ -127,12 +180,21 @@
         <pre *ngIf="state.domainModel">{{ state.domainModel }}</pre>
       </div>
 
-      <div class="action-buttons" *ngIf="!isProcessing && state.domainModel">
+      <!-- Domain Mapping Results (if target was uploaded) -->
+      <div *ngIf="state.domainMapping" class="output-area" style="margin-top: 20px;">
+        <div class="output-header">
+          <h3>🔄 Domain Mapping Analysis</h3>
+          <button class="btn btn-secondary btn-sm" 
+                  (click)="downloadOutput('domain-mapping', state.domainMapping)">
+            💾 Download
+          </button>
+        </div>
+        <pre>{{ state.domainMapping }}</pre>
+      </div>
+
+      <div class="action-buttons" *ngIf="canProceedToNextStep()">
         <button class="btn btn-success" (click)="approveAndContinue()">
           ✅ Approve & Continue
-        </button>
-        <button class="btn btn-secondary" (click)="rejectAndModify()">
-          ✏️ Modify
         </button>
         <button class="btn btn-danger" (click)="reset()">
           🔄 Start Over
@@ -140,14 +202,14 @@
       </div>
     </div>
 
-    <!-- Step 3: Backend Design -->
+    <!-- Step 4: Backend Design -->
     <div *ngIf="state.currentStep === ModernizationStep.BACKEND_DESIGN" class="card fade-in">
       <div class="step-header">
         <div>
           <h2>⚙️ Backend Architecture</h2>
           <p class="subtitle">Spring Boot REST API with clean architecture</p>
         </div>
-        <span class="badge badge-info">Step 3 of 5</span>
+        <span class="badge badge-info">Step 4 of 7</span>
       </div>
 
       <div class="output-area">
@@ -160,7 +222,7 @@
           </button>
         </div>
         
-        <div *ngIf="isProcessing" class="processing-indicator">
+        <div *ngIf="isProcessing && !state.backendDesign" class="processing-indicator">
           <div class="spinner"></div>
           <p>Designing backend architecture...</p>
         </div>
@@ -168,12 +230,9 @@
         <pre *ngIf="state.backendDesign">{{ state.backendDesign }}</pre>
       </div>
 
-      <div class="action-buttons" *ngIf="!isProcessing && state.backendDesign">
+      <div class="action-buttons" *ngIf="canProceedToNextStep()">
         <button class="btn btn-success" (click)="approveAndContinue()">
           ✅ Approve & Continue
-        </button>
-        <button class="btn btn-secondary" (click)="rejectAndModify()">
-          ✏️ Modify
         </button>
         <button class="btn btn-danger" (click)="reset()">
           🔄 Start Over
@@ -181,14 +240,14 @@
       </div>
     </div>
 
-    <!-- Step 4: Frontend Design -->
+    <!-- Step 5: Frontend Design -->
     <div *ngIf="state.currentStep === ModernizationStep.FRONTEND_DESIGN" class="card fade-in">
       <div class="step-header">
         <div>
           <h2>🎨 Frontend Components</h2>
           <p class="subtitle">Angular UI design with modern components</p>
         </div>
-        <span class="badge badge-info">Step 4 of 5</span>
+        <span class="badge badge-info">Step 5 of 7</span>
       </div>
 
       <div class="output-area">
@@ -201,7 +260,7 @@
           </button>
         </div>
         
-        <div *ngIf="isProcessing" class="processing-indicator">
+        <div *ngIf="isProcessing && !state.frontendDesign" class="processing-indicator">
           <div class="spinner"></div>
           <p>Creating frontend components...</p>
         </div>
@@ -209,12 +268,9 @@
         <pre *ngIf="state.frontendDesign">{{ state.frontendDesign }}</pre>
       </div>
 
-      <div class="action-buttons" *ngIf="!isProcessing && state.frontendDesign">
+      <div class="action-buttons" *ngIf="canProceedToNextStep()">
         <button class="btn btn-success" (click)="approveAndContinue()">
           ✅ Approve & Continue
-        </button>
-        <button class="btn btn-secondary" (click)="rejectAndModify()">
-          ✏️ Modify
         </button>
         <button class="btn btn-danger" (click)="reset()">
           🔄 Start Over
@@ -222,14 +278,14 @@
       </div>
     </div>
 
-    <!-- Step 5: Cloud Design -->
+    <!-- Step 6: Cloud Design -->
     <div *ngIf="state.currentStep === ModernizationStep.CLOUD_DESIGN" class="card fade-in">
       <div class="step-header">
         <div>
           <h2>☁️ Cloud Deployment</h2>
           <p class="subtitle">AWS infrastructure and containerization</p>
         </div>
-        <span class="badge badge-info">Step 5 of 5</span>
+        <span class="badge badge-info">Step 6 of 7</span>
       </div>
 
       <div class="output-area">
@@ -242,7 +298,7 @@
           </button>
         </div>
         
-        <div *ngIf="isProcessing" class="processing-indicator">
+        <div *ngIf="isProcessing && !state.cloudDesign" class="processing-indicator">
           <div class="spinner"></div>
           <p>Designing cloud architecture...</p>
         </div>
@@ -250,12 +306,9 @@
         <pre *ngIf="state.cloudDesign">{{ state.cloudDesign }}</pre>
       </div>
 
-      <div class="action-buttons" *ngIf="!isProcessing && state.cloudDesign">
+      <div class="action-buttons" *ngIf="canProceedToNextStep()">
         <button class="btn btn-success" (click)="approveAndContinue()">
-          ✅ Complete Modernization
-        </button>
-        <button class="btn btn-secondary" (click)="rejectAndModify()">
-          ✏️ Modify
+          ✅ Generate Deployable Code
         </button>
         <button class="btn btn-danger" (click)="reset()">
           🔄 Start Over
@@ -263,7 +316,54 @@
       </div>
     </div>
 
-    <!-- Step 6: Complete -->
+    <!-- Step 7: Code Generation -->
+    <div *ngIf="state.currentStep === ModernizationStep.CODE_GENERATION" class="card fade-in">
+      <div class="step-header">
+        <div>
+          <h2>💻 Code Generation</h2>
+          <p class="subtitle">Generating deployable frontend and backend applications</p>
+        </div>
+        <span class="badge badge-info">Step 7 of 7</span>
+      </div>
+
+      <div class="output-area">
+        <h3>Generated Applications</h3>
+        
+        <div *ngIf="isProcessing" class="processing-indicator">
+          <div class="spinner"></div>
+          <p>Generating complete applications... This may take 1-2 minutes</p>
+        </div>
+
+        <!-- Frontend ZIP -->
+        <div *ngIf="state.frontendZipUrl" style="margin: 20px 0; padding: 20px; background: #f0f4ff; border-radius: 8px;">
+          <h4>🎨 Frontend Application (Angular 17+)</h4>
+          <p>Complete, runnable Angular application</p>
+          <button class="btn btn-primary" (click)="downloadZip(state.frontendZipUrl, 'modernized-frontend.zip')">
+            📥 Download Frontend ZIP
+          </button>
+        </div>
+
+        <!-- Backend ZIP -->
+        <div *ngIf="state.backendZipUrl" style="margin: 20px 0; padding: 20px; background: #f0fff4; border-radius: 8px;">
+          <h4>⚙️ Backend Application (Spring Boot 3.x)</h4>
+          <p>Complete, runnable Spring Boot application</p>
+          <button class="btn btn-primary" (click)="downloadZip(state.backendZipUrl, 'modernized-backend.zip')">
+            📥 Download Backend ZIP
+          </button>
+        </div>
+      </div>
+
+      <div class="action-buttons" *ngIf="canProceedToNextStep()">
+        <button class="btn btn-success" (click)="approveAndContinue()">
+          ✅ Complete Modernization
+        </button>
+        <button class="btn btn-danger" (click)="reset()">
+          🔄 Start Over
+        </button>
+      </div>
+    </div>
+
+    <!-- Step 8: Complete -->
     <div *ngIf="state.currentStep === ModernizationStep.COMPLETE" class="card fade-in completion-card">
       <div class="completion-content">
         <div class="completion-icon">🎉</div>
@@ -279,10 +379,17 @@
             </div>
           </div>
           <div class="summary-item">
+            <div class="summary-icon">📋</div>
+            <div class="summary-text">
+              <strong>Use Cases</strong>
+              <span>Comprehensive scenarios</span>
+            </div>
+          </div>
+          <div class="summary-item">
             <div class="summary-icon">🏗️</div>
             <div class="summary-text">
               <strong>Domain Model</strong>
-              <span>Entities and contexts defined</span>
+              <span>Entities and contexts</span>
             </div>
           </div>
           <div class="summary-item">
@@ -309,13 +416,15 @@
         </div>
 
         <div class="action-buttons">
-          <button class="btn btn-primary" (click)="downloadOutput('complete-modernization', 
-            'Business Logic:\n' + state.businessLogic + '\n\n' +
-            'Domain Model:\n' + state.domainModel + '\n\n' +
-            'Backend Design:\n' + state.backendDesign + '\n\n' +
-            'Frontend Design:\n' + state.frontendDesign + '\n\n' +
-            'Cloud Design:\n' + state.cloudDesign)">
-            📦 Download Complete Package
+          <button class="btn btn-primary" 
+                  *ngIf="state.frontendZipUrl"
+                  (click)="downloadZip(state.frontendZipUrl, 'modernized-frontend.zip')">
+            📥 Download Frontend
+          </button>
+          <button class="btn btn-primary"
+                  *ngIf="state.backendZipUrl"
+                  (click)="downloadZip(state.backendZipUrl, 'modernized-backend.zip')">
+            📥 Download Backend
           </button>
           <button class="btn btn-secondary" (click)="reset()">
             🔄 Start New Modernization

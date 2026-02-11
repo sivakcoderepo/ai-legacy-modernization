@@ -10,12 +10,21 @@ export class ModernizationService {
 
   constructor() { }
 
-  analyzeCodeStream(vbCode: string): Observable<StreamChunk> {
+  /**
+   * Analyze VB code with real-time streaming
+   * @param vbCode - VB code content
+   * @param targetDomain - Optional target domain model for comparison
+   * @returns Observable that emits chunks in real-time
+   */
+  analyzeCodeStream(vbCode: string, targetDomain?: string): Observable<StreamChunk> {
     return new Observable((observer) => {
       fetch(`${this.apiUrl}/chat/stream`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: vbCode })
+        body: JSON.stringify({ 
+          message: vbCode,
+          targetDomainModel: targetDomain || ''
+        })
       })
         .then(response => {
           if (!response.ok) {
@@ -42,19 +51,27 @@ export class ModernizationService {
                   break;
                 }
 
+                // Decode the chunk immediately
                 buffer += decoder.decode(value, { stream: true });
-                const parts = buffer.split('\n\n');
-                buffer = parts.pop() || '';
+                
+                // Process all complete SSE messages in the buffer
+                const lines = buffer.split('\n');
+                buffer = lines.pop() || ''; // Keep incomplete line in buffer
 
-                for (const part of parts) {
-                  if (!part.startsWith('data:')) continue;
+                for (const line of lines) {
+                  if (line.trim() === '') continue;
+                  if (!line.startsWith('data:')) continue;
                   
-                  const jsonStr = part.replace(/^data:\s*/, '');
+                  const jsonStr = line.replace(/^data:\s*/, '').trim();
+                  if (!jsonStr) continue;
+                  
                   try {
                     const data = JSON.parse(jsonStr);
+                    // Emit each chunk immediately to the observer
+                    // This ensures real-time UI updates
                     observer.next(data);
                   } catch (e) {
-                    console.error('JSON parse error:', e, jsonStr);
+                    console.error('JSON parse error:', e, 'String:', jsonStr);
                   }
                 }
               }
@@ -71,7 +88,11 @@ export class ModernizationService {
     });
   }
 
-  // Method to read VB file
+  /**
+   * Read VB file content
+   * @param file - File object
+   * @returns Promise with file content
+   */
   readVBFile(file: File): Promise<string> {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();

@@ -18,7 +18,7 @@ def generate_frontend_zip(frontend_design: str, domain_model: str, project_name:
     Returns:
         Path to the generated zip file
     """
-    llm = ChatOpenAI(model="gpt-4.1", temperature=0)
+    llm = ChatOpenAI(model="gpt-4o", temperature=0)
     
     prompt = f"""
 You are a senior Angular developer. Generate a COMPLETE, PRODUCTION-READY Angular 17+ standalone application.
@@ -29,149 +29,145 @@ FRONTEND DESIGN:
 DOMAIN MODEL:
 {domain_model}
 
-Generate a JSON structure with ALL files needed for a working Angular app that can be deployed immediately:
+Generate a JSON structure with ALL files needed for a working Angular app that can be deployed immediately.
+
+CRITICAL REQUIREMENTS FOR angular.json:
+1. Project name MUST be "{project_name}"
+2. Build options MUST include "browser": "src/main.ts" (NOT "main")
+3. Serve configuration MUST use "buildTarget" (NOT "browserTarget")
+4. NO "defaultProject" property (deprecated)
+5. Use Angular 17+ format
+
+CORRECT angular.json format:
+{{
+  "$schema": "./node_modules/@angular/cli/lib/config/schema.json",
+  "version": 1,
+  "projects": {{
+    "{project_name}": {{
+      "architect": {{
+        "build": {{
+          "builder": "@angular-devkit/build-angular:browser",
+          "options": {{
+            "outputPath": "dist/{project_name}",
+            "index": "src/index.html",
+            "browser": "src/main.ts",
+            "polyfills": ["zone.js"],
+            "tsConfig": "tsconfig.app.json",
+            "assets": ["src/favicon.ico", "src/assets"],
+            "styles": ["src/styles.css"],
+            "scripts": []
+          }}
+        }},
+        "serve": {{
+          "builder": "@angular-devkit/build-angular:dev-server",
+          "configurations": {{
+            "development": {{
+              "buildTarget": "{project_name}:build:development"
+            }}
+          }},
+          "defaultConfiguration": "development"
+        }}
+      }}
+    }}
+  }}
+}}
+
+Generate complete JSON structure with these files:
 
 {{
   "projectName": "{project_name}",
   "files": [
     {{
       "path": "package.json",
-      "content": "Complete package.json with all dependencies for Angular 17+"
+      "content": "Complete package.json with Angular 17+ dependencies"
     }},
     {{
       "path": "angular.json",
-      "content": "Complete angular.json configuration"
+      "content": "MUST follow the CORRECT format above with 'browser' property"
     }},
     {{
       "path": "tsconfig.json",
-      "content": "TypeScript configuration"
+      "content": "TypeScript base configuration"
     }},
     {{
       "path": "tsconfig.app.json",
-      "content": "App-specific TypeScript config"
-    }},
-    {{
-      "path": "src/index.html",
-      "content": "Main HTML file"
+      "content": "Application TypeScript configuration"
     }},
     {{
       "path": "src/main.ts",
-      "content": "Bootstrap file"
+      "content": "Bootstrap file with bootstrapApplication"
+    }},
+    {{
+      "path": "src/index.html",
+      "content": "HTML shell with <app-root>"
     }},
     {{
       "path": "src/styles.css",
-      "content": "Global styles with modern, professional design"
+      "content": "Global styles"
     }},
     {{
       "path": "src/app/app.component.ts",
-      "content": "Root component with routing"
-    }},
-    {{
-      "path": "src/app/app.component.html",
-      "content": "Root component template"
-    }},
-    {{
-      "path": "src/app/app.component.css",
-      "content": "Root component styles"
+      "content": "Root standalone component"
     }},
     {{
       "path": "src/app/app.routes.ts",
-      "content": "Application routing configuration"
+      "content": "Application routes"
     }},
     {{
-      "path": "src/app/models/domain.model.ts",
-      "content": "TypeScript interfaces for all domain entities"
+      "path": "src/app/models/[MODEL_NAME].model.ts",
+      "content": "TypeScript interfaces from domain model"
     }},
     {{
-      "path": "src/app/services/api.service.ts",
-      "content": "Main API service for backend communication"
+      "path": "src/app/services/[SERVICE_NAME].service.ts",
+      "content": "Injectable services for API calls"
     }},
     {{
-      "path": "src/app/services/auth.service.ts",
-      "content": "Authentication service"
+      "path": "src/app/components/[COMPONENT_NAME]/[COMPONENT_NAME].component.ts",
+      "content": "Standalone component TypeScript"
     }},
     {{
-      "path": "src/app/components/dashboard/dashboard.component.ts",
-      "content": "Dashboard component TypeScript"
+      "path": "src/app/components/[COMPONENT_NAME]/[COMPONENT_NAME].component.html",
+      "content": "Component HTML template"
     }},
     {{
-      "path": "src/app/components/dashboard/dashboard.component.html",
-      "content": "Dashboard component HTML with modern UI"
-    }},
-    {{
-      "path": "src/app/components/dashboard/dashboard.component.css",
-      "content": "Dashboard component styles"
-    }},
-    {{
-      "path": "src/app/components/entity-list/entity-list.component.ts",
-      "content": "List component for main entities"
-    }},
-    {{
-      "path": "src/app/components/entity-list/entity-list.component.html",
-      "content": "List component HTML with table/cards"
-    }},
-    {{
-      "path": "src/app/components/entity-list/entity-list.component.css",
-      "content": "List component styles"
-    }},
-    {{
-      "path": "src/app/components/entity-form/entity-form.component.ts",
-      "content": "Form component for create/edit"
-    }},
-    {{
-      "path": "src/app/components/entity-form/entity-form.component.html",
-      "content": "Form component HTML with validation"
-    }},
-    {{
-      "path": "src/app/components/entity-form/entity-form.component.css",
-      "content": "Form component styles"
-    }},
-    {{
-      "path": "src/app/components/navbar/navbar.component.ts",
-      "content": "Navigation bar component"
-    }},
-    {{
-      "path": "src/app/components/navbar/navbar.component.html",
-      "content": "Navigation bar HTML"
-    }},
-    {{
-      "path": "src/app/components/navbar/navbar.component.css",
-      "content": "Navigation bar styles"
-    }},
-    {{
-      "path": "src/environments/environment.ts",
-      "content": "Development environment config"
-    }},
-    {{
-      "path": "src/environments/environment.prod.ts",
-      "content": "Production environment config"
-    }},
-    {{
-      "path": ".gitignore",
-      "content": "Git ignore file for Angular"
+      "path": "src/app/components/[COMPONENT_NAME]/[COMPONENT_NAME].component.css",
+      "content": "Component styles"
     }},
     {{
       "path": "README.md",
-      "content": "Complete README with setup and deployment instructions"
+      "content": "Complete setup and run instructions"
+    }},
+    {{
+      "path": ".gitignore",
+      "content": "Git ignore for Angular projects"
+    }},
+    {{
+      "path": "Dockerfile",
+      "content": "Multi-stage Dockerfile for production"
     }}
   ]
 }}
 
 REQUIREMENTS:
-1. Use Angular 17+ with standalone components (NO NgModule)
-2. Use reactive forms for all forms
-3. Include proper error handling and loading states
-4. Add responsive design (mobile-first)
-5. Include environment configuration for API URLs
-6. Add interceptors for HTTP requests
-7. Use modern UI/UX patterns (cards, gradients, shadows)
-8. Include proper TypeScript types for everything
-9. Add validation messages and user feedback
-10. Make it production-ready with proper structure
+1. Angular 17+ with standalone components (NO NgModule)
+2. Use provideRouter for routing
+3. Use provideHttpClient for HTTP
+4. Reactive forms with FormsModule
+5. CommonModule for directives
+6. API base URL: http://localhost:8080/api
+7. Responsive design with CSS Grid/Flexbox
+8. Form validation
+9. Error handling
+10. Loading states
+11. TypeScript strict mode
+12. Production build optimization
+13. Docker support
 
-API Endpoint assumed: http://localhost:8080/api
+For [MODEL_NAME], [SERVICE_NAME], [COMPONENT_NAME] placeholders, create files for EACH entity in the domain model.
 
-Return ONLY the JSON structure with complete file contents.
+CRITICAL: Ensure angular.json uses "browser" NOT "main", and "buildTarget" NOT "browserTarget"
+
+Return ONLY the JSON structure with complete, working code.
 """
     
     response = llm.invoke(prompt).content
@@ -185,6 +181,22 @@ Return ONLY the JSON structure with complete file contents.
         print(f"Error parsing JSON: {e}")
         print(f"Response: {response[:500]}")
         raise
+    
+    # Validate angular.json has correct format
+    angular_json_file = next((f for f in project_data["files"] if f["path"] == "angular.json"), None)
+    if angular_json_file:
+        try:
+            angular_config = json.loads(angular_json_file["content"])
+            # Check if it has the correct 'browser' property
+            if project_name in angular_config.get("projects", {}):
+                build_options = angular_config["projects"][project_name]["architect"]["build"]["options"]
+                if "main" in build_options and "browser" not in build_options:
+                    # Fix it: rename 'main' to 'browser'
+                    print("⚠️ Fixing angular.json: changing 'main' to 'browser'")
+                    build_options["browser"] = build_options.pop("main")
+                    angular_json_file["content"] = json.dumps(angular_config, indent=2)
+        except (json.JSONDecodeError, KeyError) as e:
+            print(f"⚠️ Could not validate angular.json: {e}")
     
     # Create temporary directory structure
     temp_dir = Path("/tmp") / project_name
@@ -231,8 +243,8 @@ def frontend_code_generation_agent(
         Status updates and final zip file path
     """
     if stream:
-        yield "🎨 Generating complete Angular application...\n"
-        yield "📦 Creating project structure...\n"
+        yield "🎨 Generating complete Angular 17+ application...\n"
+        yield "📦 Creating project structure with standalone components...\n"
     
     try:
         zip_path = generate_frontend_zip(frontend_design, domain_model, project_name)
@@ -251,13 +263,16 @@ def frontend_code_generation_agent(
 5. Open browser: http://localhost:4200
 
 The application includes:
-- ✅ Modern Angular 17+ standalone components
+- ✅ Angular 17+ with standalone components
+- ✅ TypeScript strict mode
 - ✅ Reactive forms with validation
-- ✅ API service pre-configured for backend
-- ✅ Responsive design (mobile-first)
-- ✅ Professional UI/UX
-- ✅ Environment configuration
-- ✅ Complete project structure
+- ✅ HTTP client configured for API
+- ✅ Routing with lazy loading
+- ✅ Responsive design
+- ✅ Error handling
+- ✅ Loading states
+- ✅ Docker support
+- ✅ Production build ready
 """
         
         if stream:

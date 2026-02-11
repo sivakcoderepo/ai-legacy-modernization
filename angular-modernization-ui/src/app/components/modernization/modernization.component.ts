@@ -31,18 +31,11 @@ export class ModernizationComponent {
   uploadedFileName = '';
   targetDomainFileName = '';
   
-  // Track which content has been received (for background streaming)
-  private receivedContent = {
-    businessLogic: false,
-    useCases: false,
-    domainModel: false,
-    domainMapping: false,
-    backendDesign: false,
-    frontendDesign: false,
-    cloudDesign: false,
-    frontendZip: false,
-    backendZip: false
-  };
+  // Track which steps have received content (for showing approve button early)
+  private stepsWithContent: Set<ModernizationStep> = new Set();
+  
+  // Track if we're currently streaming content for the active step
+  private isStreamingCurrentStep = false;
   
   steps: StepInfo[] = [
     { step: ModernizationStep.UPLOAD, title: 'Upload VB Code', description: 'Upload your legacy VB application', icon: '📁' },
@@ -98,8 +91,10 @@ export class ModernizationComponent {
     }
 
     this.isProcessing = true;
+    this.isStreamingCurrentStep = true;
     this.state.currentStep = ModernizationStep.BUSINESS_LOGIC;
     this.state.history = [];
+    this.stepsWithContent.clear();
     
     // Reset all outputs
     this.state.businessLogic = '';
@@ -111,19 +106,6 @@ export class ModernizationComponent {
     this.state.cloudDesign = '';
     this.state.frontendZipUrl = '';
     this.state.backendZipUrl = '';
-    
-    // Reset received content tracking
-    this.receivedContent = {
-      businessLogic: false,
-      useCases: false,
-      domainModel: false,
-      domainMapping: false,
-      backendDesign: false,
-      frontendDesign: false,
-      cloudDesign: false,
-      frontendZip: false,
-      backendZip: false
-    };
 
     this.state.history.push({
       role: 'user',
@@ -132,113 +114,127 @@ export class ModernizationComponent {
 
     console.log('🚀 Starting stream subscription...');
     let chunkCount = 0;
+    let lastChunkTime = Date.now();
 
     this.modernizationService.analyzeCodeStream(this.state.vbCode, this.state.targetDomainModel)
       .subscribe({
         next: (chunk) => {
           chunkCount++;
-          console.log(`[CHUNK ${chunkCount}]`, Object.keys(chunk));
+          const now = Date.now();
+          console.log(`[CHUNK ${chunkCount}] (${now - lastChunkTime}ms)`, Object.keys(chunk));
+          lastChunkTime = now;
           
-          // Stream content into state variables
-          // Content accumulates in background while user is on current step
-          
+          // Business Logic
           if (chunk.business_logic) {
             this.state.businessLogic += chunk.business_logic;
-            if (!this.receivedContent.businessLogic) {
-              console.log('✅ Business Logic: Started receiving');
-              this.receivedContent.businessLogic = true;
+            this.stepsWithContent.add(ModernizationStep.BUSINESS_LOGIC);
+            
+            // If we're on business logic step and receiving content, mark as streaming
+            if (this.state.currentStep === ModernizationStep.BUSINESS_LOGIC) {
+              this.isStreamingCurrentStep = true;
             }
           }
           
+          // Use Cases
           if (chunk.use_cases) {
             this.state.useCases += chunk.use_cases;
-            if (!this.receivedContent.useCases) {
-              console.log('✅ Use Cases: Started receiving');
-              this.receivedContent.useCases = true;
+            this.stepsWithContent.add(ModernizationStep.USE_CASES);
+            
+            if (this.state.currentStep === ModernizationStep.USE_CASES) {
+              this.isStreamingCurrentStep = true;
             }
           }
           
+          // Domain Model
           if (chunk.domain_model) {
             this.state.domainModel += chunk.domain_model;
-            if (!this.receivedContent.domainModel) {
-              console.log('✅ Domain Model: Started receiving');
-              this.receivedContent.domainModel = true;
+            this.stepsWithContent.add(ModernizationStep.DOMAIN_MODEL);
+            
+            if (this.state.currentStep === ModernizationStep.DOMAIN_MODEL) {
+              this.isStreamingCurrentStep = true;
             }
           }
           
+          // Domain Mapping
           if (chunk.domain_mapping) {
             this.state.domainMapping += chunk.domain_mapping;
-            if (!this.receivedContent.domainMapping) {
-              console.log('✅ Domain Mapping: Started receiving');
-              this.receivedContent.domainMapping = true;
-            }
           }
           
+          // Backend Design
           if (chunk.backend_design) {
             this.state.backendDesign += chunk.backend_design;
-            if (!this.receivedContent.backendDesign) {
-              console.log('✅ Backend Design: Started receiving');
-              this.receivedContent.backendDesign = true;
+            this.stepsWithContent.add(ModernizationStep.BACKEND_DESIGN);
+            
+            if (this.state.currentStep === ModernizationStep.BACKEND_DESIGN) {
+              this.isStreamingCurrentStep = true;
             }
           }
           
+          // Frontend Design
           if (chunk.frontend_design) {
             this.state.frontendDesign += chunk.frontend_design;
-            if (!this.receivedContent.frontendDesign) {
-              console.log('✅ Frontend Design: Started receiving');
-              this.receivedContent.frontendDesign = true;
+            this.stepsWithContent.add(ModernizationStep.FRONTEND_DESIGN);
+            
+            if (this.state.currentStep === ModernizationStep.FRONTEND_DESIGN) {
+              this.isStreamingCurrentStep = true;
             }
           }
           
+          // Cloud Design
           if (chunk.cloud_design) {
             this.state.cloudDesign += chunk.cloud_design;
-            if (!this.receivedContent.cloudDesign) {
-              console.log('✅ Cloud Design: Started receiving');
-              this.receivedContent.cloudDesign = true;
+            this.stepsWithContent.add(ModernizationStep.CLOUD_DESIGN);
+            
+            if (this.state.currentStep === ModernizationStep.CLOUD_DESIGN) {
+              this.isStreamingCurrentStep = true;
             }
           }
           
+          // ZIPs
           if (chunk.frontend_zip_url) {
             this.state.frontendZipUrl = chunk.frontend_zip_url;
-            if (!this.receivedContent.frontendZip) {
-              console.log('✅ Frontend ZIP: Ready');
-              this.receivedContent.frontendZip = true;
-            }
+            this.stepsWithContent.add(ModernizationStep.CODE_GENERATION);
           }
           
           if (chunk.backend_zip_url) {
             this.state.backendZipUrl = chunk.backend_zip_url;
-            if (!this.receivedContent.backendZip) {
-              console.log('✅ Backend ZIP: Ready');
-              this.receivedContent.backendZip = true;
-            }
+            this.stepsWithContent.add(ModernizationStep.CODE_GENERATION);
           }
           
-          if (chunk.status) {
-            console.log('📢 Status:', chunk.status);
-          }
+          // After 2 seconds of no chunks for current step, consider it done
+          setTimeout(() => {
+            if (Date.now() - lastChunkTime > 2000) {
+              this.isStreamingCurrentStep = false;
+              console.log(`✅ Step ${this.state.currentStep} streaming appears complete`);
+            }
+          }, 2100);
         },
         error: (error) => {
           console.error('❌ Stream error:', error);
           this.isProcessing = false;
+          this.isStreamingCurrentStep = false;
           alert('Error during analysis. Please check if the backend is running.');
         },
         complete: () => {
           console.log(`✅ Stream complete! Total chunks: ${chunkCount}`);
           this.isProcessing = false;
-          
-          // Show summary of what was received
-          console.log('📊 Content received:', this.receivedContent);
+          this.isStreamingCurrentStep = false;
         }
       });
   }
 
   approveAndContinue(): void {
-    // User manually advances to next step
-    // Content for future steps is already streaming in background
     if (this.state.currentStep < ModernizationStep.COMPLETE) {
       this.state.currentStep++;
+      this.isStreamingCurrentStep = false; // Reset for new step
       console.log(`✅ User approved. Moving to step ${this.state.currentStep}`);
+    }
+  }
+
+  goBack(): void {
+    if (this.state.currentStep > ModernizationStep.UPLOAD) {
+      this.state.currentStep--;
+      console.log(`⬅️ Going back to step ${this.state.currentStep}`);
     }
   }
 
@@ -265,18 +261,8 @@ export class ModernizationComponent {
     this.uploadedFileName = '';
     this.targetDomainFileName = '';
     this.isProcessing = false;
-    
-    this.receivedContent = {
-      businessLogic: false,
-      useCases: false,
-      domainModel: false,
-      domainMapping: false,
-      backendDesign: false,
-      frontendDesign: false,
-      cloudDesign: false,
-      frontendZip: false,
-      backendZip: false
-    };
+    this.isStreamingCurrentStep = false;
+    this.stepsWithContent.clear();
   }
 
   downloadOutput(stepName: string, content: string): void {
@@ -303,25 +289,40 @@ export class ModernizationComponent {
   }
 
   canProceedToNextStep(): boolean {
-    // Check if current step has content AND streaming is complete for that step
+    // FIXED: Show approve button as soon as we have content for current step
+    // Don't wait for isProcessing to finish (that's for the whole stream)
+    
     switch (this.state.currentStep) {
       case ModernizationStep.BUSINESS_LOGIC:
-        return this.state.businessLogic.length > 0 && !this.isProcessing;
+        // Show button if we have content AND not currently streaming THIS step
+        return this.state.businessLogic.length > 50; // At least some content
+        
       case ModernizationStep.USE_CASES:
-        return this.state.useCases.length > 0;
+        return this.state.useCases.length > 50;
+        
       case ModernizationStep.DOMAIN_MODEL:
-        return this.state.domainModel.length > 0;
+        return this.state.domainModel.length > 50;
+        
       case ModernizationStep.BACKEND_DESIGN:
-        return this.state.backendDesign.length > 0;
+        return this.state.backendDesign.length > 50;
+        
       case ModernizationStep.FRONTEND_DESIGN:
-        return this.state.frontendDesign.length > 0;
+        return this.state.frontendDesign.length > 50;
+        
       case ModernizationStep.CLOUD_DESIGN:
-        return this.state.cloudDesign.length > 0;
+        return this.state.cloudDesign.length > 50;
+        
       case ModernizationStep.CODE_GENERATION:
         return this.state.frontendZipUrl.length > 0 && this.state.backendZipUrl.length > 0;
+        
       default:
         return false;
     }
+  }
+
+  canGoBack(): boolean {
+    return this.state.currentStep > ModernizationStep.UPLOAD && 
+           this.state.currentStep !== ModernizationStep.COMPLETE;
   }
 
   getCurrentStepContent(): string {
@@ -341,5 +342,9 @@ export class ModernizationComponent {
       default:
         return '';
     }
+  }
+
+  isCurrentStepStreaming(): boolean {
+    return this.isStreamingCurrentStep;
   }
 }

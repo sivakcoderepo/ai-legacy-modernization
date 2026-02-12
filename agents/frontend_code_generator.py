@@ -9,16 +9,8 @@ from pathlib import Path
 def generate_frontend_zip(frontend_design: str, domain_model: str, project_name: str = "modernized-frontend") -> str:
     """
     Generates a complete, deployable Angular application as a zip file.
-    
-    Args:
-        frontend_design: Frontend design specification
-        domain_model: Domain model to generate TypeScript interfaces
-        project_name: Name of the Angular project
-    
-    Returns:
-        Path to the generated zip file
     """
-    llm = ChatOpenAI(model="gpt-4o", temperature=0)
+    llm = ChatOpenAI(model="gpt-4.1", temperature=0)
     
     prompt = f"""
 You are a senior Angular developer. Generate a COMPLETE, PRODUCTION-READY Angular 17+ standalone application.
@@ -29,21 +21,62 @@ FRONTEND DESIGN:
 DOMAIN MODEL:
 {domain_model}
 
-Generate a JSON structure with ALL files needed for a working Angular app that can be deployed immediately.
+Generate a JSON structure with ALL files needed for a working Angular app.
 
-CRITICAL REQUIREMENTS FOR angular.json:
-1. Project name MUST be "{project_name}"
-2. Build options MUST include "browser": "src/main.ts" (NOT "main")
-3. Serve configuration MUST use "buildTarget" (NOT "browserTarget")
-4. NO "defaultProject" property (deprecated)
-5. Use Angular 17+ format
+CRITICAL REQUIREMENTS:
+
+1. package.json MUST have these EXACT versions:
+   - "@angular/core": "^17.3.0"
+   - "zone.js": "~0.14.2"  (MUST match Angular 17.3)
+   - "@angular/common": "^17.3.0"
+   - All Angular packages MUST be 17.3.x
+
+2. angular.json MUST have:
+   - "browser": "src/main.ts" (NOT "main")
+   - "buildTarget" (NOT "browserTarget")
+   - Project name: "{project_name}"
+
+CORRECT package.json dependencies:
+{{
+  "dependencies": {{
+    "@angular/animations": "^17.3.0",
+    "@angular/common": "^17.3.0",
+    "@angular/compiler": "^17.3.0",
+    "@angular/core": "^17.3.0",
+    "@angular/forms": "^17.3.0",
+    "@angular/platform-browser": "^17.3.0",
+    "@angular/platform-browser-dynamic": "^17.3.0",
+    "@angular/router": "^17.3.0",
+    "rxjs": "~7.8.0",
+    "tslib": "^2.3.0",
+    "zone.js": "~0.14.2"
+  }},
+  "devDependencies": {{
+    "@angular-devkit/build-angular": "^17.3.0",
+    "@angular/cli": "^17.3.0",
+    "@angular/compiler-cli": "^17.3.0",
+    "@types/jasmine": "~5.1.0",
+    "jasmine-core": "~5.1.0",
+    "karma": "~6.4.0",
+    "karma-chrome-launcher": "~3.2.0",
+    "karma-coverage": "~2.2.0",
+    "karma-jasmine": "~5.1.0",
+    "karma-jasmine-html-reporter": "~2.1.0",
+    "typescript": "~5.2.2"
+  }}
+}}
 
 CORRECT angular.json format:
 {{
   "$schema": "./node_modules/@angular/cli/lib/config/schema.json",
   "version": 1,
+  "newProjectRoot": "projects",
   "projects": {{
     "{project_name}": {{
+      "projectType": "application",
+      "root": "",
+      "sourceRoot": "src",
+      "prefix": "app",
       "architect": {{
         "build": {{
           "builder": "@angular-devkit/build-angular:browser",
@@ -56,11 +89,32 @@ CORRECT angular.json format:
             "assets": ["src/favicon.ico", "src/assets"],
             "styles": ["src/styles.css"],
             "scripts": []
-          }}
+          }},
+          "configurations": {{
+            "production": {{
+              "budgets": [
+                {{
+                  "type": "initial",
+                  "maximumWarning": "500kb",
+                  "maximumError": "1mb"
+                }}
+              ],
+              "outputHashing": "all"
+            }},
+            "development": {{
+              "optimization": false,
+              "extractLicenses": false,
+              "sourceMap": true
+            }}
+          }},
+          "defaultConfiguration": "production"
         }},
         "serve": {{
           "builder": "@angular-devkit/build-angular:dev-server",
           "configurations": {{
+            "production": {{
+              "buildTarget": "{project_name}:build:production"
+            }},
             "development": {{
               "buildTarget": "{project_name}:build:development"
             }}
@@ -69,6 +123,9 @@ CORRECT angular.json format:
         }}
       }}
     }}
+  }},
+  "cli": {{
+    "analytics": false
   }}
 }}
 
@@ -79,27 +136,27 @@ Generate complete JSON structure with these files:
   "files": [
     {{
       "path": "package.json",
-      "content": "Complete package.json with Angular 17+ dependencies"
+      "content": "MUST use zone.js ~0.14.2 and Angular 17.3.x"
     }},
     {{
       "path": "angular.json",
-      "content": "MUST follow the CORRECT format above with 'browser' property"
+      "content": "MUST use 'browser' and 'buildTarget'"
     }},
     {{
       "path": "tsconfig.json",
-      "content": "TypeScript base configuration"
+      "content": "Base TypeScript config"
     }},
     {{
       "path": "tsconfig.app.json",
-      "content": "Application TypeScript configuration"
+      "content": "App TypeScript config"
     }},
     {{
       "path": "src/main.ts",
-      "content": "Bootstrap file with bootstrapApplication"
+      "content": "Bootstrap with bootstrapApplication"
     }},
     {{
       "path": "src/index.html",
-      "content": "HTML shell with <app-root>"
+      "content": "HTML with <app-root>"
     }},
     {{
       "path": "src/styles.css",
@@ -110,95 +167,112 @@ Generate complete JSON structure with these files:
       "content": "Root standalone component"
     }},
     {{
+      "path": "src/app/app.component.html",
+      "content": "Root template"
+    }},
+    {{
       "path": "src/app/app.routes.ts",
       "content": "Application routes"
     }},
     {{
-      "path": "src/app/models/[MODEL_NAME].model.ts",
-      "content": "TypeScript interfaces from domain model"
+      "path": "src/app/models/[entity].model.ts",
+      "content": "TypeScript interfaces from domain"
     }},
     {{
-      "path": "src/app/services/[SERVICE_NAME].service.ts",
-      "content": "Injectable services for API calls"
+      "path": "src/app/services/[entity].service.ts",
+      "content": "Services for API calls to http://localhost:8080/api"
     }},
     {{
-      "path": "src/app/components/[COMPONENT_NAME]/[COMPONENT_NAME].component.ts",
-      "content": "Standalone component TypeScript"
+      "path": "src/app/components/[entity]/[entity].component.ts",
+      "content": "Standalone component"
     }},
     {{
-      "path": "src/app/components/[COMPONENT_NAME]/[COMPONENT_NAME].component.html",
-      "content": "Component HTML template"
+      "path": "src/app/components/[entity]/[entity].component.html",
+      "content": "Component template"
     }},
     {{
-      "path": "src/app/components/[COMPONENT_NAME]/[COMPONENT_NAME].component.css",
+      "path": "src/app/components/[entity]/[entity].component.css",
       "content": "Component styles"
     }},
     {{
       "path": "README.md",
-      "content": "Complete setup and run instructions"
+      "content": "Setup and run instructions"
     }},
     {{
       "path": ".gitignore",
-      "content": "Git ignore for Angular projects"
-    }},
-    {{
-      "path": "Dockerfile",
-      "content": "Multi-stage Dockerfile for production"
+      "content": "Git ignore"
     }}
   ]
 }}
 
 REQUIREMENTS:
-1. Angular 17+ with standalone components (NO NgModule)
-2. Use provideRouter for routing
-3. Use provideHttpClient for HTTP
-4. Reactive forms with FormsModule
-5. CommonModule for directives
-6. API base URL: http://localhost:8080/api
-7. Responsive design with CSS Grid/Flexbox
-8. Form validation
-9. Error handling
-10. Loading states
-11. TypeScript strict mode
-12. Production build optimization
-13. Docker support
+1. Angular 17.3+ with standalone components
+2. Use provideRouter, provideHttpClient
+3. Reactive forms with validation
+4. API URL: http://localhost:8080/api
+5. TypeScript strict mode
+6. Responsive design
 
-For [MODEL_NAME], [SERVICE_NAME], [COMPONENT_NAME] placeholders, create files for EACH entity in the domain model.
+CRITICAL: 
+- zone.js MUST be ~0.14.2 (matches Angular 17.3)
+- All @angular packages MUST be ^17.3.0
+- angular.json MUST use "browser" not "main"
 
-CRITICAL: Ensure angular.json uses "browser" NOT "main", and "buildTarget" NOT "browserTarget"
-
-Return ONLY the JSON structure with complete, working code.
+Return ONLY the JSON structure with complete code.
 """
     
     response = llm.invoke(prompt).content
-    
-    # Clean up markdown code blocks if present
     response = response.replace("```json", "").replace("```", "").strip()
     
     try:
         project_data = json.loads(response)
     except json.JSONDecodeError as e:
         print(f"Error parsing JSON: {e}")
-        print(f"Response: {response[:500]}")
         raise
     
-    # Validate angular.json has correct format
+    # FIX 1: Validate and fix angular.json
     angular_json_file = next((f for f in project_data["files"] if f["path"] == "angular.json"), None)
     if angular_json_file:
         try:
             angular_config = json.loads(angular_json_file["content"])
-            # Check if it has the correct 'browser' property
             if project_name in angular_config.get("projects", {}):
                 build_options = angular_config["projects"][project_name]["architect"]["build"]["options"]
                 if "main" in build_options and "browser" not in build_options:
-                    # Fix it: rename 'main' to 'browser'
-                    print("⚠️ Fixing angular.json: changing 'main' to 'browser'")
+                    print("⚠️ Fixing angular.json: 'main' → 'browser'")
                     build_options["browser"] = build_options.pop("main")
                     angular_json_file["content"] = json.dumps(angular_config, indent=2)
         except (json.JSONDecodeError, KeyError) as e:
             print(f"⚠️ Could not validate angular.json: {e}")
     
-    # Create temporary directory structure
+    # FIX 2: Validate and fix package.json zone.js version
+    package_json_file = next((f for f in project_data["files"] if f["path"] == "package.json"), None)
+    if package_json_file:
+        try:
+            package_json = json.loads(package_json_file["content"])
+            deps = package_json.get("dependencies", {})
+            
+            # Fix zone.js version
+            if "zone.js" in deps and deps["zone.js"] != "~0.14.2":
+                print(f"⚠️ Fixing zone.js: {deps['zone.js']} → ~0.14.2")
+                deps["zone.js"] = "~0.14.2"
+            
+            # Ensure all Angular packages are 17.3.x
+            for key in deps:
+                if key.startswith("@angular/") and not deps[key].startswith("^17.3"):
+                    print(f"⚠️ Fixing {key}: {deps[key]} → ^17.3.0")
+                    deps[key] = "^17.3.0"
+            
+            # Fix devDependencies
+            dev_deps = package_json.get("devDependencies", {})
+            for key in dev_deps:
+                if key.startswith("@angular") and not dev_deps[key].startswith("^17.3"):
+                    dev_deps[key] = "^17.3.0"
+            
+            package_json_file["content"] = json.dumps(package_json, indent=2)
+        except (json.JSONDecodeError, KeyError) as e:
+            print(f"⚠️ Could not validate package.json: {e}")
+    
+    # Create temporary directory
     temp_dir = Path("/tmp") / project_name
     temp_dir.mkdir(exist_ok=True)
     
@@ -231,20 +305,10 @@ def frontend_code_generation_agent(
 ):
     """
     Agent that generates deployable frontend code.
-    
-    Args:
-        frontend_design: Frontend design specification
-        domain_model: Domain model
-        history: Conversation history
-        project_name: Name of the project
-        stream: Whether to stream the response
-    
-    Yields:
-        Status updates and final zip file path
     """
     if stream:
-        yield "🎨 Generating complete Angular 17+ application...\n"
-        yield "📦 Creating project structure with standalone components...\n"
+        yield "🎨 Generating Angular 17.3 application...\n"
+        yield "📦 Creating project with correct dependencies...\n"
     
     try:
         zip_path = generate_frontend_zip(frontend_design, domain_model, project_name)
@@ -253,26 +317,19 @@ def frontend_code_generation_agent(
 ✅ Frontend code generated successfully!
 
 📦 ZIP File: {zip_path}
-📁 Project Name: {project_name}
+📁 Project: {project_name}
 
-🚀 To run the application:
-1. Unzip the file: unzip {project_name}.zip
-2. Navigate: cd {project_name}
-3. Install dependencies: npm install
-4. Start dev server: npm start
-5. Open browser: http://localhost:4200
+🚀 To run:
+1. unzip {project_name}.zip
+2. cd {project_name}
+3. npm install
+4. npm start
+5. Open http://localhost:4200
 
-The application includes:
-- ✅ Angular 17+ with standalone components
-- ✅ TypeScript strict mode
-- ✅ Reactive forms with validation
-- ✅ HTTP client configured for API
-- ✅ Routing with lazy loading
-- ✅ Responsive design
-- ✅ Error handling
-- ✅ Loading states
-- ✅ Docker support
-- ✅ Production build ready
+✅ Fixed versions:
+- Angular: 17.3.x
+- zone.js: 0.14.2
+- TypeScript: 5.2.2
 """
         
         if stream:
@@ -281,7 +338,7 @@ The application includes:
             yield message
             
     except Exception as e:
-        error_msg = f"❌ Error generating frontend code: {str(e)}"
+        error_msg = f"❌ Error: {str(e)}"
         if stream:
             yield error_msg
         else:

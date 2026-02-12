@@ -1,11 +1,10 @@
 from fastapi import FastAPI, Request
-from fastapi.responses import StreamingResponse, FileResponse
+from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 import json
-import os
 import asyncio
-from datetime import datetime
 import logging
+from datetime import datetime
 
 # Configure logging
 logging.basicConfig(
@@ -14,14 +13,10 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-app = FastAPI(
-    title="Legacy Modernization API",
-    version="3.0",
-    description="Complete VB to Modern Stack Modernization Platform"
-)
+app = FastAPI(title="Legacy Modernization API", version="3.0")
 
 # CORS setup
-origins = ["http://localhost:4200", "http://localhost:5500", "http://127.0.0.1:4200", "*"]
+origins = ["http://localhost:4200", "http://localhost:5500", "*"]
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
@@ -30,173 +25,124 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Output directory
-OUTPUT_DIR = "/mnt/user-data/outputs"
-os.makedirs(OUTPUT_DIR, exist_ok=True)
-
-# Import the complete orchestrator
+# Import orchestrator
 try:
-    from graph.enhanced_orchestrator_final import build_enhanced_graph, modernize_stream
-    graph = build_enhanced_graph()
-    logger.info("✅ Loaded complete enhanced orchestrator (v3.0)")
+    from graph.enhanced_orchestrator_final import modernize_stream as modernize_stream_function
+    orchestrator_loaded = True
+    logger.info("✅ Enhanced orchestrator loaded successfully")
 except Exception as e:
+    orchestrator_loaded = False
     logger.error(f"❌ Could not load orchestrator: {e}")
-    graph = None
+    modernize_stream_function = None
 
-# Health check
 @app.get("/")
 def root():
     return {
         "status": "Backend running",
         "version": "3.0",
         "timestamp": datetime.now().isoformat(),
-        "features": [
-            "Real-time streaming",
-            "Business logic analysis",
-            "Use case generation",
-            "Domain model extraction",
-            "Domain model comparison",
-            "Backend design (Spring Boot)",
-            "Frontend design (Angular)",
-            "Cloud architecture (AWS)",
-            "Deployable frontend code (ZIP)",
-            "Deployable backend code (ZIP)"
-        ]
+        "orchestrator_loaded": orchestrator_loaded
     }
 
 @app.get("/health")
 def health_check():
     return {
-        "status": "healthy",
+        "status": "healthy", 
         "timestamp": datetime.now().isoformat(),
-        "orchestrator": "loaded" if graph else "error"
+        "orchestrator": "loaded" if orchestrator_loaded else "not loaded"
     }
 
-# Main streaming endpoint with ALL features
 @app.post("/chat/stream")
-async def chat_stream_complete(req: Request):
+async def chat_stream_legacy(req: Request):
     """
-    Complete modernization endpoint with:
-    - Real-time streaming (no buffering)
-    - Use case generation
-    - Domain model comparison (optional)
-    - Deployable code generation (frontend + backend ZIPs)
+    Legacy endpoint for backward compatibility
     """
     logger.info("=" * 80)
-    logger.info("🚀 Starting complete modernization workflow v3.0")
+    logger.info("🚀 Starting modernization workflow")
     logger.info("=" * 80)
+    
+    if not orchestrator_loaded:
+        async def error_gen():
+            yield f"data: {json.dumps({'error': 'Orchestrator not loaded'})}\n\n"
+        return StreamingResponse(error_gen(), media_type="text/event-stream")
     
     body = await req.json()
     vb_code = body.get("message", "")
     target_domain = body.get("targetDomainModel", "")
     
-    logger.info(f"📄 VB Code: {len(vb_code)} characters")
+    logger.info(f"📄 VB code: {len(vb_code)} chars")
     if target_domain:
-        logger.info(f"🎯 Target Domain Model: {len(target_domain)} characters")
+        logger.info(f"🎯 Target domain: {len(target_domain)} chars")
     
     async def event_generator():
-        # Initialize state with all fields
+        # FIXED: Include ALL required state keys
         state = {
             "vb_files": [{"filename": "uploaded.vb", "content": vb_code}],
             "target_domain_model": target_domain,
             "history": [],
-            "use_case_document": "",
+            "requirements_doc": "",
             "business_logic": "",
+            "use_cases": "",              # ✅ Frontend expects this
+            "use_case_document": "",      # ✅ Orchestrator might use this
             "domain_model": "",
             "domain_mapping": "",
             "backend_design": "",
             "frontend_design": "",
             "cloud_design": "",
-            "frontend_zip_path": "",
-            "backend_zip_path": ""
+            "generated_code": "",
+            "frontend_code_status": "",
+            "backend_code_status": "",
+            "frontend_zip_url": "",
+            "backend_zip_url": ""
         }
 
         try:
-            step_count = 0
+            step_number = 0
             current_step = ""
             
             logger.info("🔄 Starting enhanced streaming workflow...")
             
-            # Stream each chunk immediately
-            async for chunk in modernize_stream(state):
-                step_count += 1
+            async for chunk in modernize_stream_function(state):
+                step_number += 1
                 
-                # Log step transitions
+                # Detect which step
                 for key in chunk.keys():
-                    if key != current_step and key in [
-                        "business_logic", "use_cases", "domain_model", 
-                        "domain_mapping", "backend_design", "frontend_design", 
-                        "cloud_design", "frontend_code_status", "backend_code_status"
-                    ]:
+                    if key != current_step:
                         current_step = key
                         step_names = {
-                            "business_logic": "🔍 Business Logic Analysis",
-                            "use_cases": "📋 Use Case Generation",
-                            "domain_model": "🏗️  Domain Model Extraction",
-                            "domain_mapping": "🔄 Domain Model Comparison",
-                            "backend_design": "⚙️  Backend Design",
+                            "requirements_doc": "📋 Requirements Document",
+                            "business_logic": "🔍 Business Logic",
+                            "use_cases": "📝 Use Cases",
+                            "use_case_document": "📝 Use Case Document",
+                            "domain_model": "🏗️ Domain Model",
+                            "domain_mapping": "🔄 Domain Mapping",
+                            "backend_design": "⚙️ Backend Design",
                             "frontend_design": "🎨 Frontend Design",
-                            "cloud_design": "☁️  Cloud Architecture",
-                            "frontend_code_status": "💻 Frontend Code Generation",
-                            "backend_code_status": "💻 Backend Code Generation"
+                            "cloud_design": "☁️ Cloud Architecture",
+                            "generated_code": "💻 Code Generation",
+                            "frontend_zip_url": "📦 Frontend ZIP",
+                            "backend_zip_url": "📦 Backend ZIP"
                         }
                         logger.info(f"{step_names.get(key, key)}: Processing...")
                 
-                # Convert file paths to download URLs if present
-                if "frontend_zip_path" in chunk and chunk["frontend_zip_path"]:
-                    filename = os.path.basename(chunk["frontend_zip_path"])
-                    chunk["frontend_zip_url"] = f"http://127.0.0.1:8000/download/{filename}"
-                    logger.info(f"✅ Frontend ZIP ready: {filename}")
+                # Map use_case_document to use_cases for frontend compatibility
+                if "use_case_document" in chunk and "use_cases" not in chunk:
+                    chunk["use_cases"] = chunk["use_case_document"]
                 
-                if "backend_zip_path" in chunk and chunk["backend_zip_path"]:
-                    filename = os.path.basename(chunk["backend_zip_path"])
-                    chunk["backend_zip_url"] = f"http://127.0.0.1:8000/download/{filename}"
-                    logger.info(f"✅ Backend ZIP ready: {filename}")
-                
-                # Send chunk immediately
                 yield f"data: {json.dumps(chunk)}\n\n"
-                
-                # CRITICAL: Force immediate delivery (prevent buffering)
-                await asyncio.sleep(0)
+                await asyncio.sleep(0.01)
             
-            logger.info("✅ Workflow completed successfully!")
-            logger.info(f"📊 Total chunks processed: {step_count}")
+            logger.info("✅ Workflow completed!")
+            logger.info(f"📊 Total chunks: {step_number}")
             
         except Exception as e:
             logger.error(f"❌ Error during workflow: {str(e)}", exc_info=True)
-            error_data = {"error": str(e), "step": "error"}
+            error_data = {"error": str(e)}
             yield f"data: {json.dumps(error_data)}\n\n"
 
-    # Return with anti-buffering headers
-    return StreamingResponse(
-        event_generator(),
-        media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-            "X-Accel-Buffering": "no",  # Disable nginx buffering
-        }
-    )
-
-# File download endpoint
-@app.get("/download/{filename}")
-async def download_file(filename: str):
-    """Download generated ZIP files."""
-    file_path = os.path.join(OUTPUT_DIR, filename)
-    
-    if os.path.exists(file_path):
-        logger.info(f"📥 Downloading: {filename}")
-        return FileResponse(
-            file_path,
-            filename=filename,
-            media_type="application/zip"
-        )
-    
-    logger.error(f"❌ File not found: {filename}")
-    return {"error": "File not found", "filename": filename}
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
 
 if __name__ == "__main__":
     import uvicorn
     logger.info("🚀 Starting Legacy Modernization API v3.0")
-    logger.info("Features: Streaming, Use Cases, Domain Mapping, Code Generation")
     uvicorn.run(app, host="0.0.0.0", port=8000, log_level="info")

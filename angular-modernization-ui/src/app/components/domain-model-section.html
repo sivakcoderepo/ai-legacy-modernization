@@ -1,0 +1,200 @@
+<!-- Domain Model Step with Comparison Features -->
+<div *ngIf="state.currentStep === ModernizationStep.DOMAIN_MODEL" class="card fade-in">
+  <div class="step-header">
+    <div>
+      <h2>🏗️ Domain Model Design</h2>
+      <p class="subtitle">Extracted domain entities from VB application</p>
+    </div>
+    <span class="badge badge-info">Step 4 of 9</span>
+  </div>
+
+  <!-- Target Domain Upload Section -->
+  <div class="upload-section" style="margin-bottom: 20px; padding: 20px; background: #f8f9fa; border-radius: 8px;">
+    <h3 style="margin-bottom: 10px;">📥 Compare with Target Domain Model (Optional)</h3>
+    <p style="margin-bottom: 15px; color: #666;">
+      Upload your enterprise domain model (JSON format) to compare with the extracted model
+    </p>
+    
+    <div class="target-domain-format" style="margin-bottom: 15px; padding: 15px; background: white; border-left: 4px solid #4472C4;">
+      <h4>Expected Format:</h4>
+      <pre style="margin: 10px 0; padding: 10px; background: #f5f5f5; border-radius: 4px; font-size: 12px;">{{
+'{
+  "loanId": "",
+  "loanType": "",
+  "principalAmount": 0.0,
+  "interestRate": 0.0,
+  "termMonths": 0.0,
+  "status": "",
+  "originationDate": "",
+  "maturityDate": ""
+}'
+      }}</pre>
+    </div>
+    
+    <input type="file" 
+           id="targetDomainInput"
+           accept=".json,.txt"
+           (change)="onTargetDomainSelected($event)"
+           style="display: none">
+    <label for="targetDomainInput" class="upload-label" style="display: inline-block; padding: 12px 24px; background: #4472C4; color: white; border-radius: 6px; cursor: pointer; font-weight: 500;">
+      <span *ngIf="!targetDomainFileName">📄 Choose Target Domain File</span>
+      <span *ngIf="targetDomainFileName" style="color: #C6EFCE;">✅ {{ targetDomainFileName }}</span>
+    </label>
+  </div>
+
+  <!-- Extracted Domain Model Output -->
+  <div class="output-area">
+    <div class="output-header">
+      <h3>Extracted Domain Model (Source)</h3>
+      <button class="btn btn-secondary btn-sm" 
+              *ngIf="state.domainModel"
+              (click)="downloadOutput('domain-model', state.domainModel)">
+        💾 Download
+      </button>
+    </div>
+    
+    <!-- Streaming Indicator -->
+    <div *ngIf="isCurrentStepStreaming()" class="processing-indicator">
+      <div class="spinner"></div>
+      <p>Extracting domain entities...</p>
+    </div>
+
+    <pre *ngIf="state.domainModel">{{ state.domainModel }}</pre>
+  </div>
+
+  <!-- Action Buttons -->
+  <div class="action-buttons" *ngIf="canProceedToNextStep()">
+    <button class="btn btn-secondary" 
+            *ngIf="canGoBack()"
+            (click)="goBack()">
+      ⬅️ Go Back
+    </button>
+    
+    <!-- SKIP COMPARISON if no target domain -->
+    <button class="btn btn-success" 
+            *ngIf="!state.targetDomainModel"
+            (click)="approveAndContinue()">
+      ✅ Approve & Continue (Skip Comparison)
+    </button>
+    
+    <!-- COMPARE if target domain exists -->
+    <button class="btn btn-primary" 
+            *ngIf="state.targetDomainModel"
+            (click)="approveAndContinue()">
+      🔄 Compare with Target Domain
+    </button>
+    
+    <button class="btn btn-danger" (click)="reset()">
+      🔄 Start Over
+    </button>
+  </div>
+</div>
+
+<!-- Domain Mapping/Comparison Step -->
+<div *ngIf="state.currentStep === ModernizationStep.DOMAIN_MAPPING" class="card fade-in">
+  <div class="step-header">
+    <div>
+      <h2>🔄 Domain Model Comparison</h2>
+      <p class="subtitle">Mapping source domain to target domain model</p>
+    </div>
+    <span class="badge badge-info">Step 5 of 9</span>
+  </div>
+
+  <div class="comparison-summary" style="margin-bottom: 20px; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; color: white;">
+    <h3 style="margin-bottom: 15px; color: white;">📊 Comparison Summary</h3>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+      <div style="background: rgba(255,255,255,0.2); padding: 15px; border-radius: 8px;">
+        <div style="font-size: 24px; font-weight: bold;">{{ getEntityCount('source') }}</div>
+        <div style="font-size: 14px; opacity: 0.9;">Source Entities</div>
+      </div>
+      <div style="background: rgba(255,255,255,0.2); padding: 15px; border-radius: 8px;">
+        <div style="font-size: 24px; font-weight: bold;">{{ getEntityCount('target') }}</div>
+        <div style="font-size: 14px; opacity: 0.9;">Target Entities</div>
+      </div>
+      <div style="background: rgba(255,255,255,0.2); padding: 15px; border-radius: 8px;">
+        <div style="font-size: 24px; font-weight: bold;">{{ getMappingConfidence() }}%</div>
+        <div style="font-size: 14px; opacity: 0.9;">Confidence</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="output-area">
+    <div class="output-header">
+      <h3>Domain Mapping Analysis</h3>
+      <div style="display: flex; gap: 10px;">
+        <button class="btn btn-primary btn-sm" 
+                *ngIf="state.domainMapping"
+                (click)="downloadDomainMappingExcel()">
+          📊 Download Excel Report
+        </button>
+        <button class="btn btn-secondary btn-sm" 
+                *ngIf="state.domainMapping"
+                (click)="downloadOutput('domain-mapping', state.domainMapping)">
+          💾 Download JSON
+        </button>
+      </div>
+    </div>
+    
+    <!-- Streaming Indicator -->
+    <div *ngIf="isCurrentStepStreaming()" class="processing-indicator">
+      <div class="spinner"></div>
+      <p>Comparing domain models...</p>
+    </div>
+
+    <pre *ngIf="state.domainMapping">{{ state.domainMapping }}</pre>
+  </div>
+
+  <div class="action-buttons" *ngIf="canProceedToNextStep()">
+    <button class="btn btn-secondary" 
+            *ngIf="canGoBack()"
+            (click)="goBack()">
+      ⬅️ Go Back
+    </button>
+    <button class="btn btn-success" (click)="approveAndContinue()">
+      ✅ Approve Mapping & Continue
+    </button>
+    <button class="btn btn-danger" (click)="reset()">
+      🔄 Start Over
+    </button>
+  </div>
+</div>
+
+<style>
+.upload-section {
+  animation: fadeIn 0.3s ease-in;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.comparison-summary {
+  animation: slideIn 0.4s ease-out;
+}
+
+@keyframes slideIn {
+  from { opacity: 0; transform: translateX(-20px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border: none;
+  color: white;
+  padding: 10px 20px;
+  border-radius: 6px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.target-domain-format {
+  animation: fadeIn 0.5s ease-in;
+}
+</style>

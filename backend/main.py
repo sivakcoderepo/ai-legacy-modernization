@@ -1,148 +1,210 @@
 from fastapi import FastAPI, Request
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 import json
 import asyncio
+import os
+from pathlib import Path
+from graph.enhanced_orchestrator_final import modernize_stream_with_approval
+from utils.domain_mapping_excel import export_domain_mapping_to_excel
 import logging
-from datetime import datetime
 
 # Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Legacy Modernization API", version="3.0")
+app = FastAPI()
 
 # CORS setup
-origins = ["http://localhost:4200", "http://localhost:5500", "*"]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Import orchestrator
-try:
-    from graph.enhanced_orchestrator_final import modernize_stream as modernize_stream_function
-    orchestrator_loaded = True
-    logger.info("✅ Enhanced orchestrator loaded successfully")
-except Exception as e:
-    orchestrator_loaded = False
-    logger.error(f"❌ Could not load orchestrator: {e}")
-    modernize_stream_function = None
-
 @app.get("/")
 def root():
-    return {
-        "status": "Backend running",
-        "version": "3.0",
-        "timestamp": datetime.now().isoformat(),
-        "orchestrator_loaded": orchestrator_loaded
-    }
+    return {"status": "VB Modernization Backend Running", "version": "3.0"}
 
 @app.get("/health")
 def health_check():
-    return {
-        "status": "healthy", 
-        "timestamp": datetime.now().isoformat(),
-        "orchestrator": "loaded" if orchestrator_loaded else "not loaded"
-    }
+    return {"status": "healthy", "features": ["streaming", "stage_approval", "domain_comparison", "excel_export"]}
 
+# Main streaming endpoint with stage approval
 @app.post("/chat/stream")
-async def chat_stream_legacy(req: Request):
+async def chat_stream_with_approval(req: Request):
     """
-    Legacy endpoint for backward compatibility
+    Complete modernization endpoint with:
+    - Stage-by-stage processing
+    - User approval workflow
+    - Domain model comparison (optional)
+    - Deployable code generation
     """
     logger.info("=" * 80)
-    logger.info("🚀 Starting modernization workflow")
+    logger.info("🚀 Starting modernization workflow v3.0 (Stage Approval)")
     logger.info("=" * 80)
-    
-    if not orchestrator_loaded:
-        async def error_gen():
-            yield f"data: {json.dumps({'error': 'Orchestrator not loaded'})}\n\n"
-        return StreamingResponse(error_gen(), media_type="text/event-stream")
     
     body = await req.json()
     vb_code = body.get("message", "")
     target_domain = body.get("targetDomainModel", "")
     
-    logger.info(f"📄 VB code: {len(vb_code)} chars")
+    logger.info(f"📄 VB Code: {len(vb_code)} characters")
     if target_domain:
-        logger.info(f"🎯 Target domain: {len(target_domain)} chars")
+        logger.info(f"🎯 Target Domain Model: {len(target_domain)} characters")
     
     async def event_generator():
-        # FIXED: Include ALL required state keys
+        # Initialize state
         state = {
             "vb_files": [{"filename": "uploaded.vb", "content": vb_code}],
             "target_domain_model": target_domain,
             "history": [],
-            "requirements_doc": "",
+            "use_case_document": "",
             "business_logic": "",
-            "use_cases": "",              # ✅ Frontend expects this
-            "use_case_document": "",      # ✅ Orchestrator might use this
             "domain_model": "",
             "domain_mapping": "",
             "backend_design": "",
             "frontend_design": "",
             "cloud_design": "",
-            "generated_code": "",
-            "frontend_code_status": "",
-            "backend_code_status": "",
-            "frontend_zip_url": "",
-            "backend_zip_url": ""
+            "frontend_zip_path": "",
+            "backend_zip_path": "",
+            "current_stage": "",
+            "stage_approved": False
         }
 
         try:
-            step_number = 0
-            current_step = ""
+            current_stage = ""
             
-            logger.info("🔄 Starting enhanced streaming workflow...")
+            logger.info("🔄 Starting stage-based workflow...")
             
-            async for chunk in modernize_stream_function(state):
-                step_number += 1
+            # Stream each chunk
+            async for chunk in modernize_stream_with_approval(state):
+                # Log stage transitions
+                if "stage" in chunk and chunk["stage"] != current_stage:
+                    current_stage = chunk["stage"]
+                    stage_names = {
+                        "business_logic": "🔍 Business Logic Analysis",
+                        "use_cases": "📋 Use Case Generation",
+                        "domain_model": "🏗️ Domain Model Extraction",
+                        "domain_mapping": "🔄 Domain Model Comparison",
+                        "backend_design": "⚙️ Backend Design",
+                        "frontend_design": "🎨 Frontend Design",
+                        "cloud_design": "☁️ Cloud Architecture",
+                        "frontend_code": "💻 Frontend Code Generation",
+                        "backend_code": "💻 Backend Code Generation",
+                        "complete": "✅ Complete"
+                    }
+                    logger.info(f"{stage_names.get(current_stage, current_stage)}: Started")
                 
-                # Detect which step
-                for key in chunk.keys():
-                    if key != current_step:
-                        current_step = key
-                        step_names = {
-                            "requirements_doc": "📋 Requirements Document",
-                            "business_logic": "🔍 Business Logic",
-                            "use_cases": "📝 Use Cases",
-                            "use_case_document": "📝 Use Case Document",
-                            "domain_model": "🏗️ Domain Model",
-                            "domain_mapping": "🔄 Domain Mapping",
-                            "backend_design": "⚙️ Backend Design",
-                            "frontend_design": "🎨 Frontend Design",
-                            "cloud_design": "☁️ Cloud Architecture",
-                            "generated_code": "💻 Code Generation",
-                            "frontend_zip_url": "📦 Frontend ZIP",
-                            "backend_zip_url": "📦 Backend ZIP"
-                        }
-                        logger.info(f"{step_names.get(key, key)}: Processing...")
+                # Check if stage is complete - PAUSE FOR APPROVAL
+                if chunk.get("stage_complete", False):
+                    logger.info(f"⏸️ Stage complete: {current_stage} - Waiting for user approval")
                 
-                # Map use_case_document to use_cases for frontend compatibility
-                if "use_case_document" in chunk and "use_cases" not in chunk:
-                    chunk["use_cases"] = chunk["use_case_document"]
+                # Convert file paths to download URLs
+                if "frontend_zip_path" in chunk and chunk["frontend_zip_path"]:
+                    filename = os.path.basename(chunk["frontend_zip_path"])
+                    chunk["frontend_zip_url"] = f"http://127.0.0.1:8000/download/{filename}"
+                    logger.info(f"✅ Frontend ZIP ready: {filename}")
                 
+                if "backend_zip_path" in chunk and chunk["backend_zip_path"]:
+                    filename = os.path.basename(chunk["backend_zip_path"])
+                    chunk["backend_zip_url"] = f"http://127.0.0.1:8000/download/{filename}"
+                    logger.info(f"✅ Backend ZIP ready: {filename}")
+                
+                # Send chunk immediately
                 yield f"data: {json.dumps(chunk)}\n\n"
-                await asyncio.sleep(0.01)
+                await asyncio.sleep(0)
             
             logger.info("✅ Workflow completed!")
-            logger.info(f"📊 Total chunks: {step_number}")
             
         except Exception as e:
-            logger.error(f"❌ Error during workflow: {str(e)}", exc_info=True)
-            error_data = {"error": str(e)}
+            logger.error(f"❌ Error: {str(e)}", exc_info=True)
+            error_data = {"error": str(e), "stage": "error"}
             yield f"data: {json.dumps(error_data)}\n\n"
 
-    return StreamingResponse(event_generator(), media_type="text/event-stream")
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        }
+    )
+
+# Excel export endpoint for domain mapping
+@app.post("/export/domain-mapping/excel")
+async def export_domain_mapping(req: Request):
+    """
+    Export domain mapping comparison to Excel file.
+    
+    Request body:
+    {
+        "domain_mapping": "JSON string from domain_mapping_agent"
+    }
+    """
+    try:
+        body = await req.json()
+        domain_mapping_json = body.get("domain_mapping", "")
+        
+        if not domain_mapping_json:
+            return {"error": "No domain mapping provided"}
+        
+        # Generate unique filename
+        import time
+        timestamp = int(time.time())
+        output_filename = f"domain_mapping_{timestamp}.xlsx"
+        output_path = f"/mnt/user-data/outputs/{output_filename}"
+        
+        # Create Excel file
+        excel_path = export_domain_mapping_to_excel(domain_mapping_json, output_path)
+        
+        logger.info(f"✅ Excel file created: {excel_path}")
+        
+        # Return file for download
+        return FileResponse(
+            excel_path,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            filename=output_filename
+        )
+        
+    except Exception as e:
+        logger.error(f"❌ Error creating Excel: {str(e)}", exc_info=True)
+        return {"error": str(e)}
+
+# File download endpoint
+@app.get("/download/{filename}")
+async def download_file(filename: str):
+    """Download generated ZIP files or other outputs."""
+    file_path = f"/mnt/user-data/outputs/{filename}"
+    
+    if not os.path.exists(file_path):
+        return {"error": "File not found"}
+    
+    return FileResponse(file_path, filename=filename)
+
+# Endpoint to get list of available outputs
+@app.get("/outputs")
+async def list_outputs():
+    """List all available output files."""
+    output_dir = Path("/mnt/user-data/outputs")
+    
+    if not output_dir.exists():
+        return {"files": []}
+    
+    files = []
+    for file_path in output_dir.iterdir():
+        if file_path.is_file():
+            files.append({
+                "name": file_path.name,
+                "size": file_path.stat().st_size,
+                "modified": file_path.stat().st_mtime,
+                "download_url": f"http://127.0.0.1:8000/download/{file_path.name}"
+            })
+    
+    return {"files": files}
 
 if __name__ == "__main__":
     import uvicorn
-    logger.info("🚀 Starting Legacy Modernization API v3.0")
-    uvicorn.run(app, host="0.0.0.0", port=8000, log_level="info")
+    uvicorn.run(app, host="0.0.0.0", port=8000)

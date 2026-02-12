@@ -12,7 +12,7 @@ from agents.backend_code_generator import backend_code_generation_agent
 import asyncio
 
 class EnhancedState(TypedDict):
-    vb_files: List[Dict]  # List of {filename, content}
+    vb_files: List[Dict]
     target_domain_model: str
     use_case_document: str
     history: List[Dict]
@@ -24,66 +24,59 @@ class EnhancedState(TypedDict):
     cloud_design: str
     frontend_zip_path: str
     backend_zip_path: str
+    current_stage: str
+    stage_approved: bool
 
-async def modernize_stream(state: EnhancedState):
+async def modernize_stream_with_approval(state: EnhancedState):
     """
-    Complete modernization workflow with all features and real-time streaming.
+    Modernization workflow with USER APPROVAL at each stage.
     
-    Features:
-    - Business logic analysis
-    - Use case generation
-    - Domain model extraction
-    - Domain model comparison (optional)
-    - Backend design
-    - Frontend design
-    - Cloud architecture
-    - Deployable frontend code (ZIP)
-    - Deployable backend code (ZIP)
-    
-    Streaming: Each chunk is immediately yielded for real-time UI updates
+    Workflow:
+    1. Run stage → Yield results → WAIT for approval
+    2. User approves → Continue to next stage
+    3. User can provide target domain model at domain stage
     """
     state["history"].append({"role": "user", "content": f"Analyzing {len(state['vb_files'])} VB files"})
 
-    # 1️⃣ Business Logic Analysis - STREAM EACH CHUNK
+    # 1️⃣ STAGE: Business Logic Analysis
+    state["current_stage"] = "business_logic"
     combined_vb = "\n\n".join([f"=== {f['filename']} ===\n{f['content']}" for f in state["vb_files"]])
     
     for chunk in legacy_code_analyzer(combined_vb, state["history"], stream=True):
         chunk_text = chunk.content if hasattr(chunk, 'content') else str(chunk)
         state["business_logic"] += chunk_text
-        
-        # Immediately yield for real-time UI update
-        yield {"business_logic": chunk_text}
-        await asyncio.sleep(0)  # Force immediate delivery
-
-    state["history"].append({"role": "assistant", "content": state["business_logic"]})
-
-    # 2️⃣ Use Case Generation - STREAM EACH CHUNK
-    for chunk in use_case_generator_agent(
-        "",  # Requirements doc (optional)
-        state["business_logic"],
-        state["history"],
-        stream=True
-    ):
-        chunk_text = chunk.content if hasattr(chunk, 'content') else str(chunk)
-        state["use_case_document"] += chunk_text
-        
-        yield {"use_cases": chunk_text}
+        yield {"business_logic": chunk_text, "stage": "business_logic", "stage_complete": False}
         await asyncio.sleep(0)
 
+    # Mark stage complete and wait for approval
+    yield {"business_logic": "", "stage": "business_logic", "stage_complete": True}
+    state["history"].append({"role": "assistant", "content": state["business_logic"]})
+
+    # 2️⃣ STAGE: Use Case Generation
+    state["current_stage"] = "use_cases"
+    for chunk in use_case_generator_agent("", state["business_logic"], state["history"], stream=True):
+        chunk_text = chunk.content if hasattr(chunk, 'content') else str(chunk)
+        state["use_case_document"] += chunk_text
+        yield {"use_cases": chunk_text, "stage": "use_cases", "stage_complete": False}
+        await asyncio.sleep(0)
+
+    yield {"use_cases": "", "stage": "use_cases", "stage_complete": True}
     state["history"].append({"role": "assistant", "content": state["use_case_document"]})
 
-    # 3️⃣ Domain Model - STREAM EACH CHUNK
+    # 3️⃣ STAGE: Domain Model Extraction
+    state["current_stage"] = "domain_model"
     for chunk in domain_model_agent(state["business_logic"], state["history"], stream=True):
         chunk_text = chunk.content if hasattr(chunk, 'content') else str(chunk)
         state["domain_model"] += chunk_text
-        
-        yield {"domain_model": chunk_text}
+        yield {"domain_model": chunk_text, "stage": "domain_model", "stage_complete": False}
         await asyncio.sleep(0)
 
+    yield {"domain_model": "", "stage": "domain_model", "stage_complete": True}
     state["history"].append({"role": "assistant", "content": state["domain_model"]})
 
-    # 4️⃣ Domain Mapping (if target domain provided) - STREAM EACH CHUNK
+    # 3.5️⃣ STAGE: Domain Model Comparison (if target provided)
     if state.get("target_domain_model") and state["target_domain_model"].strip():
+        state["current_stage"] = "domain_mapping"
         for chunk in domain_mapping_agent(
             state["domain_model"], 
             state["target_domain_model"], 
@@ -92,121 +85,132 @@ async def modernize_stream(state: EnhancedState):
         ):
             chunk_text = chunk.content if hasattr(chunk, 'content') else str(chunk)
             state["domain_mapping"] += chunk_text
-            
-            yield {"domain_mapping": chunk_text}
+            yield {"domain_mapping": chunk_text, "stage": "domain_mapping", "stage_complete": False}
             await asyncio.sleep(0)
 
+        yield {"domain_mapping": "", "stage": "domain_mapping", "stage_complete": True}
         state["history"].append({"role": "assistant", "content": state["domain_mapping"]})
 
-    # 5️⃣ Backend Design - STREAM EACH CHUNK
-    for chunk in backend_agent(state["domain_model"], state["history"], stream=True):
+    # 4️⃣ STAGE: Backend Design
+    state["current_stage"] = "backend_design"
+    for chunk in backend_agent(
+        state["domain_model"],
+        state["business_logic"],
+        state["history"],
+        stream=True
+    ):
         chunk_text = chunk.content if hasattr(chunk, 'content') else str(chunk)
         state["backend_design"] += chunk_text
-        
-        yield {"backend_design": chunk_text}
+        yield {"backend_design": chunk_text, "stage": "backend_design", "stage_complete": False}
         await asyncio.sleep(0)
 
+    yield {"backend_design": "", "stage": "backend_design", "stage_complete": True}
     state["history"].append({"role": "assistant", "content": state["backend_design"]})
 
-    # 6️⃣ Frontend Design - STREAM EACH CHUNK
-    for chunk in frontend_agent(state["backend_design"], state["history"], stream=True):
+    # 5️⃣ STAGE: Frontend Design
+    state["current_stage"] = "frontend_design"
+    for chunk in frontend_agent(
+        state["domain_model"],
+        state["backend_design"],
+        state["history"],
+        stream=True
+    ):
         chunk_text = chunk.content if hasattr(chunk, 'content') else str(chunk)
         state["frontend_design"] += chunk_text
-        
-        yield {"frontend_design": chunk_text}
+        yield {"frontend_design": chunk_text, "stage": "frontend_design", "stage_complete": False}
         await asyncio.sleep(0)
 
+    yield {"frontend_design": "", "stage": "frontend_design", "stage_complete": True}
     state["history"].append({"role": "assistant", "content": state["frontend_design"]})
 
-    # 7️⃣ Cloud Design - STREAM EACH CHUNK
-    combined = state["backend_design"] + state["frontend_design"]
-    for chunk in cloud_agent(combined, state["history"], stream=True):
+    # 6️⃣ STAGE: Cloud Architecture
+    state["current_stage"] = "cloud_design"
+    for chunk in cloud_agent(
+        state["backend_design"],
+        state["frontend_design"],
+        state["history"],
+        stream=True
+    ):
         chunk_text = chunk.content if hasattr(chunk, 'content') else str(chunk)
         state["cloud_design"] += chunk_text
-        
-        yield {"cloud_design": chunk_text}
+        yield {"cloud_design": chunk_text, "stage": "cloud_design", "stage_complete": False}
         await asyncio.sleep(0)
 
+    yield {"cloud_design": "", "stage": "cloud_design", "stage_complete": True}
     state["history"].append({"role": "assistant", "content": state["cloud_design"]})
 
-    # 8️⃣ Frontend Code Generation (ZIP) - STREAM STATUS UPDATES
-    yield {"status": "🎨 Generating deployable frontend code..."}
-    await asyncio.sleep(0)
-    
+    # 7️⃣ STAGE: Frontend Code Generation
+    state["current_stage"] = "frontend_code"
     for chunk in frontend_code_generation_agent(
         state["frontend_design"],
         state["domain_model"],
         state["history"],
-        project_name="modernized-frontend",
         stream=True
     ):
-        chunk_text = chunk.content if hasattr(chunk, 'content') else str(chunk)
+        chunk_str = chunk.content if hasattr(chunk, 'content') else str(chunk)
+        yield {"frontend_code_status": chunk_str, "stage": "frontend_code", "stage_complete": False}
         
-        yield {"frontend_code_status": chunk_text}
+        if "ZIP File:" in chunk_str:
+            path_start = chunk_str.find("/mnt/user-data/outputs/")
+            if path_start != -1:
+                path_end = chunk_str.find("\n", path_start)
+                if path_end == -1:
+                    path_end = len(chunk_str)
+                state["frontend_zip_path"] = chunk_str[path_start:path_end].strip()
+        
         await asyncio.sleep(0)
-        
-        # Extract zip path if present
-        if "ZIP File:" in chunk_text:
-            import re
-            match = re.search(r'ZIP File: (.+\.zip)', chunk_text)
-            if match:
-                state["frontend_zip_path"] = match.group(1)
-                # Also send the path separately for easy access
-                yield {"frontend_zip_path": state["frontend_zip_path"]}
-                await asyncio.sleep(0)
 
-    # 9️⃣ Backend Code Generation (ZIP) - STREAM STATUS UPDATES
-    yield {"status": "⚙️ Generating deployable backend code..."}
-    await asyncio.sleep(0)
-    
+    yield {
+        "frontend_code_status": "✅ Complete", 
+        "stage": "frontend_code", 
+        "stage_complete": True, 
+        "frontend_zip_path": state.get("frontend_zip_path", "")
+    }
+
+    # 8️⃣ STAGE: Backend Code Generation
+    state["current_stage"] = "backend_code"
     for chunk in backend_code_generation_agent(
         state["backend_design"],
         state["domain_model"],
         state["history"],
-        project_name="modernized-backend",
         stream=True
     ):
-        chunk_text = chunk.content if hasattr(chunk, 'content') else str(chunk)
+        chunk_str = chunk.content if hasattr(chunk, 'content') else str(chunk)
+        yield {"backend_code_status": chunk_str, "stage": "backend_code", "stage_complete": False}
         
-        yield {"backend_code_status": chunk_text}
+        if "ZIP File:" in chunk_str:
+            path_start = chunk_str.find("/mnt/user-data/outputs/")
+            if path_start != -1:
+                path_end = chunk_str.find("\n", path_start)
+                if path_end == -1:
+                    path_end = len(chunk_str)
+                state["backend_zip_path"] = chunk_str[path_start:path_end].strip()
+        
         await asyncio.sleep(0)
-        
-        # Extract zip path if present
-        if "ZIP File:" in chunk_text:
-            import re
-            match = re.search(r'ZIP File: (.+\.zip)', chunk_text)
-            if match:
-                state["backend_zip_path"] = match.group(1)
-                # Also send the path separately for easy access
-                yield {"backend_zip_path": state["backend_zip_path"]}
-                await asyncio.sleep(0)
 
-    # 🔟 Final Summary
-    summary = f"""
-🎉 MODERNIZATION COMPLETE!
+    yield {
+        "backend_code_status": "✅ Complete", 
+        "stage": "backend_code", 
+        "stage_complete": True, 
+        "backend_zip_path": state.get("backend_zip_path", "")
+    }
 
-📦 Deliverables Generated:
-- ✅ Business Logic Analysis
-- ✅ Use Cases Document
-- ✅ Domain Model
-{f"- ✅ Domain Mapping Analysis" if state.get("domain_mapping") else ""}
-- ✅ Backend Design (Spring Boot)
-- ✅ Frontend Design (Angular)
-- ✅ Cloud Architecture (AWS)
-- ✅ Frontend Code: {state.get('frontend_zip_path', 'N/A')}
-- ✅ Backend Code: {state.get('backend_zip_path', 'N/A')}
+    # Final summary
+    yield {
+        "stage": "complete",
+        "stage_complete": True,
+        "summary": "🎉 Modernization complete! All artifacts generated."
+    }
 
-All artifacts ready for download and deployment!
-"""
-    yield {"final_summary": summary}
-    await asyncio.sleep(0)
-
-    state["history"].append({"role": "assistant", "content": summary})
 
 def build_enhanced_graph():
     """Build the complete modernization workflow graph."""
     graph = StateGraph(EnhancedState)
-    graph.add_node("modernize_stream", modernize_stream)
-    graph.set_entry_point("modernize_stream")
-    graph.set_finish_point("modernize_stream")
+    graph.add_node("modernize_stream_with_approval", modernize_stream_with_approval)
+    graph.set_entry_point("modernize_stream_with_approval")
+    graph.set_finish_point("modernize_stream_with_approval")
     return graph.compile()
+
+
+# Explicitly export
+__all__ = ['modernize_stream_with_approval', 'build_enhanced_graph', 'EnhancedState']

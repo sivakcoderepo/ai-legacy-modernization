@@ -18,7 +18,7 @@ def generate_backend_zip(backend_design: str, domain_model: str, project_name: s
     Returns:
         Path to the generated zip file
     """
-    llm = ChatOpenAI(model="gpt-4o", temperature=0)
+    llm = ChatOpenAI(model="gpt-4.1", temperature=0, max_tokens=16000)  # Increased token limit
     
     prompt = f"""
 You are a senior Java Spring Boot developer. Generate a COMPLETE, PRODUCTION-READY Spring Boot 3.x application with Java 17+.
@@ -29,7 +29,13 @@ BACKEND DESIGN:
 DOMAIN MODEL:
 {domain_model}
 
-Generate a JSON structure with ALL files needed for a working Spring Boot app that can be deployed immediately:
+Generate a JSON structure with ALL files needed for a working Spring Boot app. Keep code concise and focused.
+
+CRITICAL JSON FORMAT RULES:
+1. Use escaped quotes inside JSON strings: \\" not "
+2. Use \\n for newlines in code strings
+3. Keep file contents under 500 lines each
+4. Return ONLY valid JSON, no markdown, no code blocks
 
 {{
   "projectName": "{project_name}",
@@ -38,130 +44,26 @@ Generate a JSON structure with ALL files needed for a working Spring Boot app th
   "files": [
     {{
       "path": "pom.xml",
-      "content": "Complete pom.xml with Spring Boot 3.x, JPA, Web, Security, Validation, PostgreSQL driver"
+      "content": "<?xml version=\\"1.0\\" encoding=\\"UTF-8\\"?>\\n<project>...</project>"
     }},
     {{
-      "path": "src/main/java/com/modernized/application/Application.java",
-      "content": "Spring Boot main application class with @SpringBootApplication"
-    }},
-    {{
-      "path": "src/main/java/com/modernized/domain/entity/BaseEntity.java",
-      "content": "Base entity class with id, createdAt, updatedAt"
-    }},
-    {{
-      "path": "src/main/java/com/modernized/domain/entity/[ENTITY_NAME].java",
-      "content": "JPA entity classes for each domain entity with proper annotations"
-    }},
-    {{
-      "path": "src/main/java/com/modernized/domain/repository/[ENTITY_NAME]Repository.java",
-      "content": "Spring Data JPA repository interfaces"
-    }},
-    {{
-      "path": "src/main/java/com/modernized/application/service/[ENTITY_NAME]Service.java",
-      "content": "Service interface"
-    }},
-    {{
-      "path": "src/main/java/com/modernized/application/service/impl/[ENTITY_NAME]ServiceImpl.java",
-      "content": "Service implementation with business logic"
-    }},
-    {{
-      "path": "src/main/java/com/modernized/interfaces/rest/[ENTITY_NAME]Controller.java",
-      "content": "REST controller with CRUD endpoints, proper validation, error handling"
-    }},
-    {{
-      "path": "src/main/java/com/modernized/interfaces/dto/[ENTITY_NAME]DTO.java",
-      "content": "DTO classes with validation annotations"
-    }},
-    {{
-      "path": "src/main/java/com/modernized/interfaces/dto/ErrorResponse.java",
-      "content": "Standard error response DTO"
-    }},
-    {{
-      "path": "src/main/java/com/modernized/infrastructure/config/DatabaseConfig.java",
-      "content": "Database configuration"
-    }},
-    {{
-      "path": "src/main/java/com/modernized/infrastructure/config/SecurityConfig.java",
-      "content": "Spring Security configuration with CORS, JWT ready"
-    }},
-    {{
-      "path": "src/main/java/com/modernized/infrastructure/config/WebConfig.java",
-      "content": "Web MVC configuration"
-    }},
-    {{
-      "path": "src/main/java/com/modernized/infrastructure/exception/GlobalExceptionHandler.java",
-      "content": "Global exception handler with @RestControllerAdvice"
-    }},
-    {{
-      "path": "src/main/java/com/modernized/infrastructure/exception/ResourceNotFoundException.java",
-      "content": "Custom exception for not found resources"
-    }},
-    {{
-      "path": "src/main/java/com/modernized/infrastructure/exception/ValidationException.java",
-      "content": "Custom validation exception"
-    }},
-    {{
-      "path": "src/main/resources/application.yml",
-      "content": "Main application properties with database config, server port 8080"
-    }},
-    {{
-      "path": "src/main/resources/application-dev.yml",
-      "content": "Development profile configuration"
-    }},
-    {{
-      "path": "src/main/resources/application-prod.yml",
-      "content": "Production profile configuration"
-    }},
-    {{
-      "path": "src/main/resources/db/migration/V1__initial_schema.sql",
-      "content": "Flyway migration script for initial database schema"
-    }},
-    {{
-      "path": "src/test/java/com/modernized/application/service/[ENTITY_NAME]ServiceTest.java",
-      "content": "Unit tests for service layer"
-    }},
-    {{
-      "path": ".gitignore",
-      "content": "Git ignore file for Java/Maven projects"
-    }},
-    {{
-      "path": "README.md",
-      "content": "Complete README with setup, API documentation, and deployment instructions"
-    }},
-    {{
-      "path": "Dockerfile",
-      "content": "Multi-stage Dockerfile for production deployment"
-    }},
-    {{
-      "path": "docker-compose.yml",
-      "content": "Docker compose with Spring Boot app and PostgreSQL database"
+      "path": "src/main/java/com/modernized/Application.java",
+      "content": "package com.modernized;\\n\\nimport org.springframework.boot.SpringApplication;\\n..."
     }}
   ]
 }}
 
-REQUIREMENTS:
-1. Use Spring Boot 3.x with Java 17+
-2. Clean architecture: domain, application, infrastructure, interfaces layers
-3. JPA entities with proper relationships
-4. DTOs separate from entities
-5. Comprehensive error handling
-6. Input validation with @Valid
-7. CORS configured for frontend
-8. Swagger/OpenAPI documentation
-9. Database migrations with Flyway
-10. Health check endpoint
-11. Logging configuration
-12. Unit tests for critical services
-13. Docker support
-14. Production-ready configuration
+Create these essential files:
+1. pom.xml - Spring Boot 3.x, JPA, Web, PostgreSQL
+2. Application.java - Main class
+3. One sample Entity based on domain model
+4. One Repository for the entity
+5. One Service for the entity  
+6. One Controller for the entity
+7. application.yml - Basic config
+8. README.md
 
-Database: PostgreSQL
-Port: 8080
-API Base Path: /api
-
-For [ENTITY_NAME] placeholders, create files for EACH entity in the domain model.
-
-Return ONLY the JSON structure with complete, compilable code.
+Keep it minimal but functional. Return ONLY the JSON structure.
 """
     
     response = llm.invoke(prompt).content
@@ -169,15 +71,29 @@ Return ONLY the JSON structure with complete, compilable code.
     # Clean up markdown code blocks if present
     response = response.replace("```json", "").replace("```", "").strip()
     
+    # Try to extract JSON if there's extra text
+    if not response.startswith("{"):
+        # Find first { and last }
+        start = response.find("{")
+        end = response.rfind("}") + 1
+        if start != -1 and end > start:
+            response = response[start:end]
+    
     try:
         project_data = json.loads(response)
     except json.JSONDecodeError as e:
-        print(f"Error parsing JSON: {e}")
-        print(f"Response: {response[:500]}")
-        raise
+        print(f"Error parsing JSON at character {e.pos}: {e.msg}")
+        print(f"Context around error: {response[max(0, e.pos-100):min(len(response), e.pos+100)]}")
+        # Save the problematic response for debugging
+        with open("/tmp/failed_backend_response.txt", "w") as f:
+            f.write(response)
+        raise Exception(f"JSON parsing failed. Response saved to /tmp/failed_backend_response.txt. Error: {e}")
     
     # Create temporary directory structure
     temp_dir = Path("/tmp") / project_name
+    if temp_dir.exists():
+        import shutil
+        shutil.rmtree(temp_dir)
     temp_dir.mkdir(exist_ok=True)
     
     # Create all files
@@ -197,6 +113,7 @@ Return ONLY the JSON structure with complete, compilable code.
                 arcname = os.path.relpath(file_path, temp_dir)
                 zipf.write(file_path, arcname)
     
+    print(f"✅ Backend ZIP created: {zip_path}")
     return zip_path
 
 
@@ -209,20 +126,9 @@ def backend_code_generation_agent(
 ):
     """
     Agent that generates deployable backend code.
-    
-    Args:
-        backend_design: Backend design specification
-        domain_model: Domain model
-        history: Conversation history
-        project_name: Name of the project
-        stream: Whether to stream the response
-    
-    Yields:
-        Status updates and final zip file path
     """
     if stream:
-        yield "⚙️ Generating complete Spring Boot application...\n"
-        yield "📦 Creating project structure...\n"
+        yield "⚙️ Generating Spring Boot application...\n"
     
     try:
         zip_path = generate_backend_zip(backend_design, domain_model, project_name)
@@ -231,38 +137,22 @@ def backend_code_generation_agent(
 ✅ Backend code generated successfully!
 
 📦 ZIP File: {zip_path}
-📁 Project Name: {project_name}
+📁 Project: {project_name}
 
-🚀 To run the application:
-1. Unzip the file: unzip {project_name}.zip
-2. Navigate: cd {project_name}
-3. Start PostgreSQL: docker-compose up -d postgres
-4. Build: ./mvnw clean install
-5. Run: ./mvnw spring-boot:run
-6. API available at: http://localhost:8080/api
-
-The application includes:
-- ✅ Spring Boot 3.x with Java 17+
-- ✅ Clean architecture (4 layers)
-- ✅ JPA entities with relationships
-- ✅ REST API with full CRUD
-- ✅ Validation and error handling
-- ✅ PostgreSQL database
-- ✅ Flyway migrations
-- ✅ Docker support
-- ✅ Swagger documentation
-- ✅ Unit tests
-- ✅ Production-ready configuration
+🚀 To run:
+1. unzip {project_name}.zip
+2. cd {project_name}
+3. mvn spring-boot:run
 """
         
         if stream:
             yield message
         else:
-            yield message
+            return message
             
     except Exception as e:
-        error_msg = f"❌ Error generating backend code: {str(e)}"
+        error_msg = f"❌ Error generating backend: {str(e)}"
         if stream:
             yield error_msg
         else:
-            yield error_msg
+            return error_msg

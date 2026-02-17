@@ -18,7 +18,8 @@ def generate_backend_zip(backend_design: str, domain_model: str, project_name: s
     Returns:
         Path to the generated zip file
     """
-    llm = ChatOpenAI(model="gpt-4.1", temperature=0, max_tokens=16000)  # Increased token limit
+    llm = ChatOpenAI(model="gpt-4.1", temperature=0, max_tokens=16000,  request_timeout=120,  # 2 minutes
+    max_retries=3)  # Increased token limit
     
     prompt = f"""
 You are a senior Java Spring Boot developer. Generate a COMPLETE, PRODUCTION-READY Spring Boot 3.x application with Java 17+.

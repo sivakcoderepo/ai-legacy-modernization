@@ -7,7 +7,8 @@ def frontend_agent(backend_design: str, history: List[Dict[str, str]], stream: b
     Frontend design assistant that creates Angular UI component specifications
     with TypeScript safety in mind.
     """
-    llm = ChatOpenAI(model="gpt-4.1", temperature=0)
+    llm = ChatOpenAI(model="gpt-4.1", temperature=0,  request_timeout=120,  # 2 minutes
+    max_retries=3)
     
     history_text = "\n".join([f'{h["role"]}: {h["content"]}' for h in history])
     

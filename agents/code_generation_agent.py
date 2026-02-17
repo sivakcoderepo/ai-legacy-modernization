@@ -23,7 +23,8 @@ def code_generation_agent(
     Returns:
         JSON structure with complete code files
     """
-    llm = ChatOpenAI(model="gpt-4o", temperature=0)
+    llm = ChatOpenAI(model="gpt-4.1", temperature=0,  request_timeout=120,  # 2 minutes
+    max_retries=3)
     
     history_text = "\n".join([f'{h["role"]}: {h["content"]}' for h in history])
     

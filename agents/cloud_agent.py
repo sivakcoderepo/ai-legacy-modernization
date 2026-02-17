@@ -3,7 +3,8 @@ from langchain_openai import ChatOpenAI
 from typing import List, Dict
 
 def cloud_agent(system_design: str, history: List[Dict[str, str]], stream: bool = False):
-    llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+    llm = ChatOpenAI(model="gpt-4.1", temperature=0,  request_timeout=120,  # 2 minutes
+    max_retries=3)
 
     history_text = "\n".join([f'{h["role"]}: {h["content"]}' for h in history])
     

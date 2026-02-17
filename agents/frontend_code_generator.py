@@ -13,12 +13,50 @@ class IncrementalAngularGenerator:
     Fixes type consistency issues by generating in stages.
     """
     
-    def __init__(self, model: str = "gpt-4o"):
-        self.llm = ChatOpenAI(model=model, temperature=0)
+    def __init__(self, model: str = "gpt-4.1"):
+        self.llm = ChatOpenAI(model=model, temperature=0,  request_timeout=120,  # 2 minutes
+    max_retries=3)
         self.project_files: Dict[str, str] = {}
         self.entities: List[str] = []
         self.models: Dict[str, str] = {}
-        
+
+    def _extract_json(self, response: str) -> dict:
+        """
+        Robustly extract the first valid JSON object from an LLM response.
+        Handles trailing text, markdown fences, and preamble that caused
+        json.JSONDecodeError: Extra data.
+        """
+        text = response.replace("```json", "").replace("```", "").strip()
+
+        start = text.find('{')
+        if start == -1:
+            raise ValueError("No JSON object found in LLM response")
+
+        depth = 0
+        in_string = False
+        escape_next = False
+
+        for i, char in enumerate(text[start:], start):
+            if escape_next:
+                escape_next = False
+                continue
+            if char == '\\' and in_string:
+                escape_next = True
+                continue
+            if char == '"':
+                in_string = not in_string
+                continue
+            if in_string:
+                continue
+            if char == '{':
+                depth += 1
+            elif char == '}':
+                depth -= 1
+                if depth == 0:
+                    return json.loads(text[start:i + 1])
+
+        raise ValueError("Could not find matching closing brace in LLM response")
+
     def generate_models(self, domain_model: str) -> Dict[str, str]:
         """Generate TypeScript models with proper types."""
         
@@ -51,16 +89,9 @@ Return JSON: {{"files": [{{"path": "src/app/models/X.model.ts", "content": "..."
 """
         
         response = self.llm.invoke(prompt).content
-        clean = response.replace("```json", "").replace("```", "").strip()
-        
-        if not clean.startswith('{'):
-            start = clean.find('{')
-            end = clean.rfind('}') + 1
-            if start != -1 and end != 0:
-                clean = clean[start:end]
         
         try:
-            data = json.loads(clean)
+            data = self._extract_json(response)
             model_files = data.get("files", [])
             
             for file_info in model_files:
@@ -75,7 +106,7 @@ Return JSON: {{"files": [{{"path": "src/app/models/X.model.ts", "content": "..."
             print(f"✅ Generated {len(model_files)} model files: {', '.join(self.entities)}")
             return {f["path"]: f["content"] for f in model_files}
             
-        except json.JSONDecodeError as e:
+        except (json.JSONDecodeError, ValueError) as e:
             print(f"❌ JSON parse error in models: {e}")
             raise
     
@@ -139,15 +170,7 @@ Return JSON: {{"ts": "...", "html": "...", "css": ""}}
 """
         
         response = self.llm.invoke(prompt).content
-        clean = response.replace("```json", "").replace("```", "").strip()
-        
-        if not clean.startswith('{'):
-            start = clean.find('{')
-            end = clean.rfind('}') + 1
-            if start != -1 and end != 0:
-                clean = clean[start:end]
-        
-        files = json.loads(clean)
+        files = self._extract_json(response)
         
         base_path = f"src/app/components/{entity}-form"
         component_files = {
@@ -178,15 +201,7 @@ Return JSON: {{"ts": "...", "html": "...", "css": ""}}
 """
         
         response = self.llm.invoke(prompt).content
-        clean = response.replace("```json", "").replace("```", "").strip()
-        
-        if not clean.startswith('{'):
-            start = clean.find('{')
-            end = clean.rfind('}') + 1
-            if start != -1 and end != 0:
-                clean = clean[start:end]
-        
-        files = json.loads(clean)
+        files = self._extract_json(response)
         
         base_path = f"src/app/components/{entity}-list"
         component_files = {
@@ -209,15 +224,7 @@ Return JSON: {{"ts": "...", "html": "...", "css": ""}}
 """
         
         response = self.llm.invoke(prompt).content
-        clean = response.replace("```json", "").replace("```", "").strip()
-        
-        if not clean.startswith('{'):
-            start = clean.find('{')
-            end = clean.rfind('}') + 1
-            if start != -1 and end != 0:
-                clean = clean[start:end]
-        
-        files = json.loads(clean)
+        files = self._extract_json(response)
         
         base_path = f"src/app/components/{entity}-detail"
         component_files = {

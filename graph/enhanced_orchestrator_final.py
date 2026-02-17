@@ -129,57 +129,101 @@ async def modernize_stream(state: EnhancedState):
 
     state["history"].append({"role": "assistant", "content": state["cloud_design"]})
 
-    # 8️⃣ Frontend Code Generation (ZIP) - STREAM STATUS UPDATES
+    # 8️⃣ Frontend Code Generation (ZIP)
+    print("\n" + "="*60)
+    print("🎨 FRONTEND CODE GENERATION")
+    print("="*60)
+    
     yield {"status": "🎨 Generating deployable frontend code..."}
     await asyncio.sleep(0)
     
-    for chunk in frontend_code_generation_agent(
-        state["frontend_design"],
-        state["domain_model"],
-        state["history"],
-        project_name="modernized-frontend",
-        stream=True
-    ):
-        chunk_text = chunk.content if hasattr(chunk, 'content') else str(chunk)
+    try:
+        # Import the generator function directly to get the zip path
+        from agents.frontend_code_generator import generate_frontend_zip
         
-        yield {"frontend_code_status": chunk_text}
+        print("📞 Calling frontend code generator...")
+        
+        # Generate the frontend zip (non-streaming for path)
+        frontend_zip_path = generate_frontend_zip(
+            frontend_design=state["frontend_design"],
+            domain_model=state["domain_model"],
+            project_name="modernized-frontend"
+        )
+        
+        print(f"✅ Frontend ZIP generated: {frontend_zip_path}")
+        
+        # CRITICAL: Update state with the path
+        state["frontend_zip_path"] = frontend_zip_path
+        print(f"✅ State updated with frontend_zip_path")
+        
+        # CRITICAL: Yield the path so FastAPI can convert it to URL
+        print(f"📤 Yielding frontend_zip_path to FastAPI...")
+        yield {"frontend_zip_path": frontend_zip_path}
+        await asyncio.sleep(0)
+        print(f"✅ Frontend zip path yielded successfully!")
+        
+        # Also yield a status message
+        yield {"frontend_code_status": f"✅ Frontend generated: {frontend_zip_path}"}
         await asyncio.sleep(0)
         
-        # Extract zip path if present
-        if "ZIP File:" in chunk_text:
-            import re
-            match = re.search(r'ZIP File: (.+\.zip)', chunk_text)
-            if match:
-                state["frontend_zip_path"] = match.group(1)
-                # Also send the path separately for easy access
-                yield {"frontend_zip_path": state["frontend_zip_path"]}
-                await asyncio.sleep(0)
+    except Exception as e:
+        error_msg = f"❌ Frontend generation failed: {str(e)}"
+        print(error_msg)
+        import traceback
+        traceback.print_exc()
+        
+        yield {"frontend_code_status": error_msg}
+        await asyncio.sleep(0)
 
-    # 9️⃣ Backend Code Generation (ZIP) - STREAM STATUS UPDATES
+    print("="*60 + "\n")
+
+    # 9️⃣ Backend Code Generation (ZIP)
+    print("\n" + "="*60)
+    print("⚙️ BACKEND CODE GENERATION")
+    print("="*60)
+    
     yield {"status": "⚙️ Generating deployable backend code..."}
     await asyncio.sleep(0)
     
-    for chunk in backend_code_generation_agent(
-        state["backend_design"],
-        state["domain_model"],
-        state["history"],
-        project_name="modernized-backend",
-        stream=True
-    ):
-        chunk_text = chunk.content if hasattr(chunk, 'content') else str(chunk)
+    try:
+        # Import the generator function directly to get the zip path
+        from agents.backend_code_generator import generate_backend_zip
         
-        yield {"backend_code_status": chunk_text}
+        print("📞 Calling backend code generator...")
+        
+        # Generate the backend zip (non-streaming for path)
+        backend_zip_path = generate_backend_zip(
+            backend_design=state["backend_design"],
+            domain_model=state["domain_model"],
+            project_name="modernized-backend"
+        )
+        
+        print(f"✅ Backend ZIP generated: {backend_zip_path}")
+        
+        # CRITICAL: Update state with the path
+        state["backend_zip_path"] = backend_zip_path
+        print(f"✅ State updated with backend_zip_path")
+        
+        # CRITICAL: Yield the path so FastAPI can convert it to URL
+        print(f"📤 Yielding backend_zip_path to FastAPI...")
+        yield {"backend_zip_path": backend_zip_path}
+        await asyncio.sleep(0)
+        print(f"✅ Backend zip path yielded successfully!")
+        
+        # Also yield a status message
+        yield {"backend_code_status": f"✅ Backend generated: {backend_zip_path}"}
         await asyncio.sleep(0)
         
-        # Extract zip path if present
-        if "ZIP File:" in chunk_text:
-            import re
-            match = re.search(r'ZIP File: (.+\.zip)', chunk_text)
-            if match:
-                state["backend_zip_path"] = match.group(1)
-                # Also send the path separately for easy access
-                yield {"backend_zip_path": state["backend_zip_path"]}
-                await asyncio.sleep(0)
+    except Exception as e:
+        error_msg = f"❌ Backend generation failed: {str(e)}"
+        print(error_msg)
+        import traceback
+        traceback.print_exc()
+        
+        yield {"backend_code_status": error_msg}
+        await asyncio.sleep(0)
+
+    print("="*60 + "\n")
 
     # 🔟 Final Summary
     summary = f"""
